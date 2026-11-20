@@ -11,7 +11,30 @@ enum SidebarItem: Equatable {
     case divider
 }
 
+extension SidebarItem {
+    /// Stable across enabling and disabling tools. Dividers have no payload, so
+    /// `SidebarModel.identified` numbers them by position.
+    var stableID: String? {
+        switch self {
+        case let .route(route, _): "route:\(route)"
+        case let .group(title): "group:\(title)"
+        case .divider: nil
+        }
+    }
+}
+
 enum SidebarModel {
+    /// Pairs each item with an identity that survives tool changes: the Home divider is
+    /// always "divider.0", and the divider before General is "divider.1".
+    static func identified(_ items: [SidebarItem]) -> [(id: String, item: SidebarItem)] {
+        var dividers = 0
+        return items.map { item in
+            if let id = item.stableID { return (id, item) }
+            defer { dividers += 1 }
+            return ("divider.\(dividers)", item)
+        }
+    }
+
     /// Home, enabled tools, General. Dividers only separate non-empty sections.
     @MainActor
     static func items(for tools: [any Tool]) -> [SidebarItem] {
@@ -46,12 +69,15 @@ struct Sidebar: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 2) {
             SidekickMark().padding(.bottom, 28)
-            ForEach(Array(items.enumerated()), id: \.offset) { _, item in
-                switch item {
-                case let .route(route, title): row(route, title, indented: isIndented(route))
-                case let .group(title): SectionLabel(text: title).padding(.top, 8).padding(.bottom, 2)
-                case .divider: Hairline().padding(.vertical, 8)
+            ForEach(SidebarModel.identified(items), id: \.id) { entry in
+                Group {
+                    switch entry.item {
+                    case let .route(route, title): row(route, title, indented: isIndented(route))
+                    case let .group(title): SectionLabel(text: title).padding(.top, 8).padding(.bottom, 2)
+                    case .divider: Hairline().padding(.vertical, 8)
+                    }
                 }
+                .transition(.opacity.combined(with: .offset(y: -6)))
             }
             Spacer()
             Text("v\(Bundle.main.shortVersion)")

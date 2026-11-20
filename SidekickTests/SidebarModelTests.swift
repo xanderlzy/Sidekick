@@ -39,3 +39,20 @@ struct SidebarModelTests {
         #expect(SidebarModel.validated(.general, tools: []) == .general)
     }
 }
+
+@MainActor
+struct SidebarIdentityTests {
+    @Test func idsAreUniqueAndStableAcrossEnablingATool() {
+        let t = FakeTool(id: "dictation", name: "Dictation", pageIDs: [("home", "Home"), ("history", "History")])
+        let without = SidebarModel.identified(SidebarModel.items(for: []))
+        let with = SidebarModel.identified(SidebarModel.items(for: [t]))
+        #expect(Set(with.map(\.id)).count == with.count)
+        #expect(Set(without.map(\.id)).count == without.count)
+        func id(_ list: [(id: String, item: SidebarItem)], _ r: Route) -> String? {
+            list.first { $0.item == .route(r, title: r == .home ? "Home" : "General") }?.id
+        }
+        #expect(id(without, .general) == id(with, .general))
+        #expect(id(without, .home) == id(with, .home))
+        #expect(without.first { $0.item == .divider }?.id == with.first { $0.item == .divider }?.id)
+    }
+}
