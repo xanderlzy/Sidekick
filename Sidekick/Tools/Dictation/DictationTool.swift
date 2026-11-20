@@ -16,9 +16,12 @@ final class DictationTool: Tool {
     private let defaults: UserDefaults
     private let startServices: Bool
     private let storeDirectory: URL
+    /// Nil in tests so they never read the real Parrot data; the app passes `.live()`.
+    private let importer: ParrotImporter?
 
     init(defaults: UserDefaults = .standard, startServices: Bool = NSClassFromString("XCTestCase") == nil,
-         storeDirectory: URL = DictationEnvironment.defaultStoreDirectory) {
+         storeDirectory: URL = DictationEnvironment.defaultStoreDirectory, importer: ParrotImporter? = nil) {
+        self.importer = importer
         self.defaults = defaults
         self.startServices = startServices
         self.storeDirectory = storeDirectory
@@ -51,6 +54,9 @@ final class DictationTool: Tool {
 
     /// Idempotent: setup steps may start the tool before the registry turns it on.
     func start() {
+        if env == nil, let count = try? importer?.importIfNeeded(), count > 0 {
+            defaults.set(count, forKey: ParrotImporter.countKey)
+        }
         let env = env ?? DictationEnvironment(storeDirectory: storeDirectory, defaults: defaults)
         self.env = env
         if startServices { env.startAll() }

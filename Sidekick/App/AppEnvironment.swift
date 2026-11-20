@@ -25,7 +25,7 @@ final class AppEnvironment {
         weakPins = pins
         registry = ToolRegistry(tools: [
             KeepOnTopTool(pins: pins, requestSetup: { AppEnvironment.shared.requestSetup(toolID: "keepOnTop") }),
-            DictationTool(),
+            DictationTool(importer: .live()),
         ])
         setup = SetupCoordinator(registry: registry)
         window = MainWindowController { [unowned self] nav in AnyView(RootView(env: self, navigation: nav)) }

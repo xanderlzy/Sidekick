@@ -5,6 +5,7 @@ struct DictationHomeView: View {
     @State private var shown = false
     @State private var nudgeDismissed = false
     @AppStorage("hotkey") private var hotkey = HotkeyKey.fn.rawValue
+    @AppStorage(ParrotImporter.countKey) private var parrotImportCount = 0
 
     private var stats: Stats { env.stats.stats }
     private var key: HotkeyKey { HotkeyKey(rawValue: hotkey) ?? .fn }
@@ -24,8 +25,17 @@ struct DictationHomeView: View {
                 StatBlock(value: Formatting.duration(shown ? stats.timeSavedSeconds : 0), label: "time saved")
                 StatBlock(value: "\(shown ? stats.streak() : 0)", label: stats.streak() == 1 ? "day streak" : "days streak")
             }
+            if parrotImportCount > 0 {
+                Nudge(title: "Imported \(parrotImportCount) \(parrotImportCount == 1 ? "dictation" : "dictations") from Parrot",
+                      detail: "Your history and settings came along. Find them under History.",
+                      dismiss: { withAnimation(Motion.fluid) { UserDefaults.standard.removeObject(forKey: ParrotImporter.countKey) } })
+                    .transition(.opacity.combined(with: .move(edge: .bottom)))
+            }
             if showNudge {
-                Nudge(dismiss: { withAnimation(Motion.fluid) { nudgeDismissed = true } })
+                Nudge(title: "Turn on Apple Intelligence to polish your dictation",
+                      detail: "Until then, Dictation inserts exactly what it hears, with basic punctuation.",
+                      action: ("Open Settings", { Permissions.openSettings(.appleIntelligence) }),
+                      dismiss: { withAnimation(Motion.fluid) { nudgeDismissed = true } })
                     .transition(.opacity.combined(with: .move(edge: .bottom)))
             }
             Spacer()
@@ -61,17 +71,22 @@ private struct StatBlock: View {
 }
 
 private struct Nudge: View {
+    let title: String
+    let detail: String
+    var action: (label: String, run: () -> Void)?
     let dismiss: () -> Void
     var body: some View {
         HStack(alignment: .top, spacing: 14) {
             VStack(alignment: .leading, spacing: 4) {
-                Text("Turn on Apple Intelligence to polish your dictation")
+                Text(title)
                     .font(.system(size: 13, weight: .semibold))
-                Text("Until then, Dictation inserts exactly what it hears, with basic punctuation.")
+                Text(detail)
                     .font(Theme.Font.body).foregroundStyle(Theme.fg(0.55))
-                Button("Open Settings") { Permissions.openSettings(.appleIntelligence) }
-                    .buttonStyle(MonoButtonStyle(prominent: true))
-                    .padding(.top, 8)
+                if let action {
+                    Button(action.label, action: action.run)
+                        .buttonStyle(MonoButtonStyle(prominent: true))
+                        .padding(.top, 8)
+                }
             }
             Spacer()
             Button(action: dismiss) {
