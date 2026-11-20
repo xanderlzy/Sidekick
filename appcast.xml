@@ -3,5 +3,14 @@
   <channel>
     <title>Sidekick</title>
     <language>en</language>
+    <item>
+      <title>Sidekick 0.1.0</title>
+      <pubDate>Sat, 21 Nov 2026 01:49:38 +0800</pubDate>
+      <sparkle:version>2</sparkle:version>
+      <sparkle:shortVersionString>0.1.0</sparkle:shortVersionString>
+      <sparkle:minimumSystemVersion>26.0</sparkle:minimumSystemVersion>
+      <description><![CDATA[<p>First release: Dictation (formerly Parrot) — hold Fn, speak, and clean text appears where you&#x27;re typing. Your Parrot history imports automatically.</p>]]></description>
+      <enclosure url="https://github.com/xanderlzy/sidekick/releases/download/v0.1.0/Sidekick-0.1.0.zip" sparkle:edSignature="ZECupoq2a1pXr0gK5lPpHWVpCG20D9Sw5bwck2DHyT3wAdjfxrlXBLjkC9bPIVuOmH9BCB70N6OovV9s8QeZDg==" length="2111582" type="application/octet-stream"/>
+    </item>
   </channel>
 </rss>

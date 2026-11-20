@@ -9,7 +9,7 @@ settings:
     SWIFT_VERSION: "6.0"
     ARCHS: arm64
     MARKETING_VERSION: "0.1.0"
-    CURRENT_PROJECT_VERSION: "1"
+    CURRENT_PROJECT_VERSION: "2"
     DEAD_CODE_STRIPPING: YES
     SIDEKICK_FEED_URL: "https://github.com/xanderlzy/sidekick/releases/latest/download/appcast.xml"
 packages:
