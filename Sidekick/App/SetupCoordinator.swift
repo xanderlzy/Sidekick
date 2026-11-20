@@ -1,3 +1,4 @@
+import Foundation
 import Observation
 
 /// Tracks the one tool whose setup sheet is showing. Setup steps may start a tool before it's
@@ -11,15 +12,28 @@ final class SetupCoordinator {
     @ObservationIgnored private let registry: ToolRegistry
     @ObservationIgnored private let satisfied: @MainActor (OnboardingStep) -> Bool
 
-    init(registry: ToolRegistry, satisfied: @escaping @MainActor (OnboardingStep) -> Bool = OnboardingFlow.isSatisfied) {
+    @ObservationIgnored private let defaults: UserDefaults
+
+    init(registry: ToolRegistry, satisfied: @escaping @MainActor (OnboardingStep) -> Bool = OnboardingFlow.isSatisfied,
+         defaults: UserDefaults = .standard) {
         self.registry = registry
         self.satisfied = satisfied
+        self.defaults = defaults
+    }
+
+    /// Tool-specific steps (model download, practice...) run only the first time a tool is set up.
+    func isSetupDone(_ id: String) -> Bool { defaults.bool(forKey: "setupDone.\(id)") }
+    func markSetupDone(_ id: String) { defaults.set(true, forKey: "setupDone.\(id)") }
+
+    /// What a tool still needs before it can be turned on.
+    func setupSteps(for tool: any Tool) -> [OnboardingStep] {
+        OnboardingFlow.setupSteps(for: tool, satisfied: satisfied, setupDone: isSetupDone(tool.id))
     }
 
     /// Turns a tool on, first showing its setup sheet if it needs steps the Mac hasn't satisfied yet.
     func request(toolID: String) {
         guard let tool = registry.tools.first(where: { $0.id == toolID }) else { return }
-        if OnboardingFlow.setupSteps(for: tool, satisfied: satisfied).isEmpty {
+        if setupSteps(for: tool).isEmpty {
             registry.setEnabled(toolID, true)
         } else {
             if pending != toolID { cancel() }
@@ -39,6 +53,7 @@ final class SetupCoordinator {
     func complete() {
         guard let id = pending else { return }
         pending = nil
+        markSetupDone(id)
         registry.setEnabled(id, true)
     }
 }

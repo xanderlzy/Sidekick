@@ -12,7 +12,7 @@ struct SetupCoordinatorTests {
     init() {
         let defaults = UserDefaults(suiteName: "SetupCoordinatorTests-\(UUID())")!
         registry = ToolRegistry(tools: [a, b], defaults: defaults, defaultEnabled: [])
-        setup = SetupCoordinator(registry: registry, satisfied: { _ in false })
+        setup = SetupCoordinator(registry: registry, satisfied: { _ in false }, defaults: defaults)
     }
 
     @Test func requestShowsSheetForUnsatisfiedSteps() {
@@ -71,4 +71,29 @@ struct SetupCoordinatorTests {
         #expect(setup.pending == nil)
         #expect(registry.isEnabled("a"))
     }
+
+    @Test func completingRecordsSetupDone() {
+        setup.request(toolID: "a")
+        setup.complete()
+        #expect(setup.isSetupDone("a"))
+        #expect(!setup.isSetupDone("b"))
+    }
+
+    @Test func reEnablingWithPermissionRevokedShowsOnlyPermissionSheet() {
+        let t = FakeTool(id: "t", setupSteps: [.microphone, .speechModel])
+        let defaults = UserDefaults(suiteName: "SetupCoordinatorTests-\(UUID())")!
+        let reg = ToolRegistry(tools: [t], defaults: defaults, defaultEnabled: [])
+        let granted = Box(true)
+        let s = SetupCoordinator(registry: reg, satisfied: { _ in granted.value }, defaults: defaults)
+        s.markSetupDone("t")
+        s.request(toolID: "t")
+        #expect(reg.isEnabled("t"))
+        reg.setEnabled("t", false)
+        granted.value = false
+        s.request(toolID: "t")
+        #expect(s.pending == "t")
+        #expect(s.setupSteps(for: t) == [.microphone])
+    }
 }
+
+@MainActor private final class Box { var value: Bool; init(_ v: Bool) { value = v } }

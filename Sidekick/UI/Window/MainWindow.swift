@@ -71,6 +71,7 @@ struct RootView: View {
                 MainWindow(env: env, navigation: navigation).transition(.opacity)
             } else {
                 OnboardingView.firstRun(env: env) {
+                    for tool in env.registry.enabled { env.setup.markSetupDone(tool.id) }
                     withAnimation(Motion.gentle) { onboardingComplete = true }
                     navigation.route = .home
                     env.window.close()
@@ -101,7 +102,7 @@ struct MainWindow: View {
         .overlay {
             if let id = env.setup.pending, let tool = registry.tools.first(where: { $0.id == id }) {
                 SetupSheet(env: env,
-                           steps: OnboardingFlow.setupSteps(for: tool, satisfied: OnboardingFlow.isSatisfied))
+                           steps: env.setup.setupSteps(for: tool))
                     .transition(.opacity)
             }
         }
