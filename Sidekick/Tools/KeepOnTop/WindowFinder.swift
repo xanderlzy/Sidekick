@@ -19,6 +19,7 @@ enum WindowFinder {
         for entry in list {
             guard let pid = (entry[kCGWindowOwnerPID as String] as? NSNumber)?.int32Value, pid == frontmostPID,
                   (entry[kCGWindowLayer as String] as? NSNumber)?.intValue == 0,
+                  (entry[kCGWindowAlpha as String] as? NSNumber)?.doubleValue ?? 1 > 0,
                   let number = (entry[kCGWindowNumber as String] as? NSNumber)?.uint32Value,
                   let cg = bounds(entry[kCGWindowBounds as String]),
                   cg.width >= minSide, cg.height >= minSide

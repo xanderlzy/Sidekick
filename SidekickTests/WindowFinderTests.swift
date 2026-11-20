@@ -29,6 +29,12 @@ struct WindowFinderTests {
         #expect(w?.appName == "Safari")
     }
 
+    @Test func skipsFullyTransparentWindows() {
+        var invisible = win(id: 1, pid: 10)
+        invisible[kCGWindowAlpha as String] = 0.0
+        #expect(pick([invisible, win(id: 2, pid: 10)])?.id == 2)
+    }
+
     @Test func skipsOwnProcess() {
         #expect(pick([win(id: 1, pid: 99)], front: 99, own: 99) == nil)
     }

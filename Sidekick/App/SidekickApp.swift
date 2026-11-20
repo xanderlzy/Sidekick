@@ -51,6 +51,12 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         if Self.shouldShowWindowAtLaunch() { AppEnvironment.shared.window.show() }
     }
 
+    /// Opening Sidekick while it's already running (Finder, Launchpad) brings its window up.
+    func applicationShouldHandleReopen(_ sender: NSApplication, hasVisibleWindows flag: Bool) -> Bool {
+        AppEnvironment.shared.window.show()
+        return false
+    }
+
     static func shouldShowWindowAtLaunch(defaults: UserDefaults = .standard) -> Bool {
         !defaults.bool(forKey: "onboardingComplete")
     }
