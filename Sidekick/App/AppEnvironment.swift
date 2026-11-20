@@ -6,8 +6,8 @@ import SwiftUI
 final class AppEnvironment {
     static let shared = AppEnvironment()
 
-    /// Tools register here (Keep on Top and Dictation arrive in later tasks).
-    let registry = ToolRegistry(tools: [])
+    /// Tools register here, in Home's order (Dictation arrives in a later task).
+    let registry: ToolRegistry
     @ObservationIgnored private(set) var window: MainWindowController!
     /// Nil inside unit tests, where Sparkle shouldn't run.
     @ObservationIgnored let updater: Updater? = NSClassFromString("XCTestCase") == nil ? Updater() : nil
@@ -27,6 +27,13 @@ final class AppEnvironment {
     }
 
     private init() {
+        // Each mirror unpins itself when its source goes away; weak so the controller isn't kept alive by its panels.
+        weak var weakPins: PinController?
+        let pins = PinController { w in MirrorPanel(window: w, onClose: { weakPins?.unpin(w.id) }) }
+        weakPins = pins
+        registry = ToolRegistry(tools: [
+            KeepOnTopTool(pins: pins, requestSetup: { AppEnvironment.shared.requestSetup(toolID: "keepOnTop") }),
+        ])
         window = MainWindowController { [unowned self] nav in AnyView(RootView(env: self, navigation: nav)) }
     }
 }
