@@ -15,11 +15,7 @@ struct DictationHomeView: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 40) {
-            VStack(alignment: .leading, spacing: 6) {
-                Text(greeting).font(Theme.Font.title)
-                Text("Hold \(key.shortName) to dictate anywhere. Double-tap to go hands-free.")
-                    .font(Theme.Font.body).foregroundStyle(Theme.fg(0.5))
-            }
+            PageHeader(greeting, subtitle: "Hold \(key.shortName) to dictate anywhere. Double-tap to go hands-free.")
             HStack(alignment: .top, spacing: 48) {
                 StatBlock(value: Formatting.count(shown ? stats.totalWords : 0), label: "words dictated")
                 StatBlock(value: Formatting.duration(shown ? stats.timeSavedSeconds : 0), label: "time saved")

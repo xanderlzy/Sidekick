@@ -16,15 +16,16 @@ struct DictationHistoryView: View {
     }
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 20) {
-            HStack(alignment: .center) {
-                Text("History").font(Theme.Font.title)
-                Spacer()
-                SearchField(text: $search)
-                Button("Clear all") { confirmingClear = true }
-                    .buttonStyle(MonoButtonStyle())
-                    .disabled(records.isEmpty)
-                    .opacity(records.isEmpty ? 0.4 : 1)
+        VStack(alignment: .leading, spacing: Theme.Space.section) {
+            PageHeader(title: "History") {
+                HStack(spacing: Theme.Space.item) {
+                    SearchField(text: $search)
+                    Button("Clear all") { confirmingClear = true }
+                        .buttonStyle(MonoButtonStyle())
+                        .disabled(records.isEmpty)
+                        .opacity(records.isEmpty ? 0.4 : 1)
+                }
+                .alignmentGuide(.firstTextBaseline) { $0[VerticalAlignment.center] + 8 }
             }
             if filtered.isEmpty {
                 empty
@@ -67,7 +68,6 @@ struct DictationHistoryView: View {
                  : "Try a different word.")
                 .font(Theme.Font.body).foregroundStyle(Theme.fg(0.5))
         }
-        .padding(.top, 40)
         .transition(.opacity)
     }
 }
@@ -82,7 +82,7 @@ private struct SearchField: View {
         }
         .padding(.horizontal, 10).padding(.vertical, 6)
         .frame(width: focused || !text.isEmpty ? 220 : 160)
-        .background(Capsule().strokeBorder(Theme.fg(focused ? 0.35 : 0.15), lineWidth: 1))
+        .background(Capsule(style: .circular).strokeBorder(Theme.fg(focused ? 0.35 : 0.15), lineWidth: 1))
         .animation(Motion.snappy, value: focused)
     }
 }

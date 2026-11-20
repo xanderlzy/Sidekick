@@ -25,6 +25,18 @@ enum Theme {
 
     static let displayTracking: CGFloat = -1.5
     static let corner: CGFloat = 14
+    /// Pop-up pickers in settings rows share one width so their edges line up down the page.
+    static let pickerWidth: CGFloat = 168
+
+    /// The spacing scale every page uses.
+    enum Space {
+        /// Title to subtitle, chip to chip.
+        static let tight: CGFloat = 6
+        /// Between cards in a list.
+        static let item: CGFloat = 10
+        /// Page header to content, and between sections.
+        static let section: CGFloat = 28
+    }
 }
 
 /// Shared spring presets so every motion in the app feels like the same material.

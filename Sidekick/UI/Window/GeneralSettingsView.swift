@@ -16,8 +16,8 @@ struct GeneralSettingsView: View {
 
     var body: some View {
         ScrollView {
-            VStack(alignment: .leading, spacing: 28) {
-                Text("General").font(Theme.Font.title)
+            VStack(alignment: .leading, spacing: Theme.Space.section) {
+                PageHeader("General")
 
                 SettingsSection("Startup") {
                     SettingsRow(title: "Launch at login") {

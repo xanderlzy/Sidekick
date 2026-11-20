@@ -68,7 +68,8 @@ struct Sidebar: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 2) {
-            SidekickMark().padding(.bottom, 28)
+            // Same line height as the page title, so the two sit on one line.
+            SidekickMark().frame(height: 27).padding(.bottom, 24)
             ForEach(SidebarModel.identified(items), id: \.id) { entry in
                 Group {
                     switch entry.item {
@@ -100,22 +101,21 @@ struct Sidebar: View {
     private func row(_ route: Route, _ title: String, indented: Bool) -> some View {
         let selected = navigation.route == route
         return Button { navigation.route = route } label: {
-            HStack(spacing: 10) {
-                ZStack {
+            // Text lines up with the wordmark and group labels; the indicator sits in the gutter to the left.
+            Text(title)
+                .font(.system(size: 13, weight: selected ? .semibold : .regular))
+                .foregroundStyle(Theme.fg(selected ? 1 : 0.45))
+                .padding(.leading, indented ? 12 : 0)
+                .padding(.vertical, 7)
+                .frame(maxWidth: .infinity, alignment: .leading)
+                .overlay(alignment: .leading) {
                     if selected {
                         Capsule().fill(Theme.fg()).frame(width: 2, height: 14)
                             .matchedGeometryEffect(id: "indicator", in: indicator)
+                            .offset(x: -12)
                     }
                 }
-                .frame(width: 2)
-                Text(title)
-                    .font(.system(size: 13, weight: selected ? .semibold : .regular))
-                    .foregroundStyle(Theme.fg(selected ? 1 : 0.45))
-            }
-            .padding(.leading, indented ? 10 : 0)
-            .padding(.vertical, 7)
-            .frame(maxWidth: .infinity, alignment: .leading)
-            .contentShape(Rectangle())
+                .contentShape(Rectangle())
         }
         .buttonStyle(.plain)
     }

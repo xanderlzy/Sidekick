@@ -14,22 +14,22 @@ struct DictationSettingsView: View {
 
     var body: some View {
         ScrollView {
-            VStack(alignment: .leading, spacing: 28) {
-                Text("Dictation Settings").font(Theme.Font.title)
+            VStack(alignment: .leading, spacing: Theme.Space.section) {
+                PageHeader("Dictation Settings")
 
                 SettingsSection("Dictation") {
                     SettingsRow(title: "Dictation key", detail: "Hold to talk. Double-tap for hands-free.") {
                         Picker("", selection: $hotkey) {
                             ForEach(HotkeyKey.allCases) { Text($0.displayName).tag($0.rawValue) }
                         }
-                        .labelsHidden().fixedSize()
+                        .labelsHidden().frame(width: Theme.pickerWidth, alignment: .trailing)
                     }
                     SettingsRow(title: "Microphone") {
                         Picker("", selection: $inputDeviceUID) {
                             Text("System default").tag("")
                             ForEach(devices) { Text($0.name).tag($0.uid) }
                         }
-                        .labelsHidden().fixedSize()
+                        .labelsHidden().frame(width: Theme.pickerWidth, alignment: .trailing)
                     }
                     EngineSettings(env: env)
                 }
@@ -45,7 +45,7 @@ struct DictationSettingsView: View {
                         Picker("", selection: $retention) {
                             ForEach(RetentionPolicy.allCases) { Text($0.displayName).tag($0.rawValue) }
                         }
-                        .labelsHidden().fixedSize()
+                        .labelsHidden().frame(width: Theme.pickerWidth, alignment: .trailing)
                     }
                 }
 
@@ -93,7 +93,7 @@ struct EngineSettings: View {
             Picker("", selection: $engine) {
                 ForEach(TranscriberKind.allCases) { Text($0.displayName).tag($0.rawValue) }
             }
-            .labelsHidden().fixedSize()
+            .labelsHidden().frame(width: Theme.pickerWidth, alignment: .trailing)
         }
         .onChange(of: engine) { _, _ in env.warmUpEngine() }
         .onChange(of: store.state) { _, new in if new == .ready { env.warmUpEngine() } }

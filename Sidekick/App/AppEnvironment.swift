@@ -18,9 +18,14 @@ final class AppEnvironment {
     /// Turns a tool on, first showing its setup sheet if it needs steps the Mac hasn't satisfied yet.
     func requestSetup(toolID: String) { setup.request(toolID: toolID) }
 
-    private init() {
-        registry = ToolRegistry(tools: [DictationTool(importer: .live())])
-        setup = SetupCoordinator(registry: registry)
+    private convenience init() {
+        self.init(tools: [DictationTool(importer: .live())])
+    }
+
+    /// Tests build their own environment around sandboxed tools and defaults.
+    init(tools: [any Tool], defaults: UserDefaults = .standard) {
+        registry = ToolRegistry(tools: tools, defaults: defaults)
+        setup = SetupCoordinator(registry: registry, defaults: defaults)
         window = MainWindowController { [unowned self] nav in AnyView(RootView(env: self, navigation: nav)) }
         setup.showWindow = { [unowned self] in window.show() }
         // Closing the window mid-sheet abandons that setup.

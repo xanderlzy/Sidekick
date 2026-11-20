@@ -23,7 +23,7 @@ struct SettingsRow<Control: View>: View {
                         Text(detail).font(Theme.Font.caption).foregroundStyle(Theme.fg(0.45))
                     }
                 }
-                Spacer()
+                Spacer(minLength: 16)
                 control
             }
             .padding(.vertical, 11)

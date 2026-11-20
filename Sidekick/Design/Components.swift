@@ -31,8 +31,8 @@ struct MonoButtonStyle: ButtonStyle {
             .padding(.horizontal, 12).padding(.vertical, 6)
             .foregroundStyle(prominent ? Theme.bg() : Theme.fg())
             .background {
-                Capsule().fill(prominent ? Theme.fg() : Color.clear)
-                    .overlay(Capsule().strokeBorder(Theme.fg(prominent ? 0 : 0.2), lineWidth: 1))
+                Capsule(style: .circular).fill(prominent ? Theme.fg() : Color.clear)
+                    .overlay(Capsule(style: .circular).strokeBorder(Theme.fg(prominent ? 0 : 0.2), lineWidth: 1))
             }
             .opacity(configuration.isPressed ? 0.6 : 1)
             .scaleEffect(configuration.isPressed ? 0.97 : 1)
@@ -53,5 +53,46 @@ struct SectionLabel: View {
             .font(.system(size: 10, weight: .semibold))
             .tracking(1.2)
             .foregroundStyle(Theme.fg(0.4))
+    }
+}
+
+/// A small outlined label, always on one line. Lay several out with `FlowLayout` so they wrap whole.
+struct Chip: View {
+    let text: String
+    var body: some View {
+        Text(text)
+            .font(Theme.Font.caption)
+            .foregroundStyle(Theme.fg(0.55))
+            .lineLimit(1)
+            .fixedSize()
+            .padding(.horizontal, 8).padding(.vertical, 3)
+            .overlay(Capsule(style: .circular).strokeBorder(Theme.fg(0.12), lineWidth: 1))
+    }
+}
+
+/// A page's title with an optional line of copy under it, and optional controls on the right.
+struct PageHeader<Accessory: View>: View {
+    let title: String
+    var subtitle: String?
+    @ViewBuilder var accessory: Accessory
+
+    var body: some View {
+        HStack(alignment: .firstTextBaseline, spacing: 10) {
+            VStack(alignment: .leading, spacing: Theme.Space.tight) {
+                Text(title).font(Theme.Font.title)
+                if let subtitle {
+                    Text(subtitle).font(Theme.Font.body).foregroundStyle(Theme.fg(0.5))
+                        .fixedSize(horizontal: false, vertical: true)
+                }
+            }
+            Spacer(minLength: 0)
+            accessory
+        }
+    }
+}
+
+extension PageHeader where Accessory == EmptyView {
+    init(_ title: String, subtitle: String? = nil) {
+        self.init(title: title, subtitle: subtitle) { EmptyView() }
     }
 }

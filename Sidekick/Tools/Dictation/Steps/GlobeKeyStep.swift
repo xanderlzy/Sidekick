@@ -12,7 +12,7 @@ struct GlobeKeyStep: View {
                         .lineLimit(1).fixedSize()
                         .font(.system(size: 12, weight: i == 3 ? .semibold : .regular))
                         .padding(.horizontal, 10).padding(.vertical, 6)
-                        .background(Capsule().strokeBorder(Theme.fg(i == 3 ? 0.6 : 0.15), lineWidth: 1))
+                        .background(Capsule(style: .circular).strokeBorder(Theme.fg(i == 3 ? 0.6 : 0.15), lineWidth: 1))
                 }
             }
         } actions: {
