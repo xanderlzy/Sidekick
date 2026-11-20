@@ -47,5 +47,11 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         // Unit tests host inside the app; skip setup there.
         guard NSClassFromString("XCTestCase") == nil else { return }
         AppEnvironment.shared.registry.startEnabled()
+        // Sidekick has no Dock icon, so first-run setup (and its resume after a relaunch) must open itself.
+        if Self.shouldShowWindowAtLaunch() { AppEnvironment.shared.window.show() }
+    }
+
+    static func shouldShowWindowAtLaunch(defaults: UserDefaults = .standard) -> Bool {
+        !defaults.bool(forKey: "onboardingComplete")
     }
 }

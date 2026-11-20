@@ -64,3 +64,14 @@ struct OnboardingFlowTests {
         #expect(!flow.forward)
     }
 }
+
+@MainActor
+struct LaunchTests {
+    @Test func windowShowsAtLaunchOnlyBeforeOnboardingCompletes() {
+        let d = UserDefaults(suiteName: "LaunchTests")!
+        d.removePersistentDomain(forName: "LaunchTests")
+        #expect(AppDelegate.shouldShowWindowAtLaunch(defaults: d))
+        d.set(true, forKey: "onboardingComplete")
+        #expect(!AppDelegate.shouldShowWindowAtLaunch(defaults: d))
+    }
+}
