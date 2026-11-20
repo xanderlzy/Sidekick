@@ -48,7 +48,7 @@ The author uses Rectangle today and wants the same thing inside Sidekick, with R
 - There is no Rectangle-running warning.
 
 ## Actions and default shortcuts
-These are Rectangle's defaults, using ⌃⌥ as the base. **The builder must check each key against Rectangle's current defaults before coding.** If anything differs, Rectangle's default wins and the change gets noted.
+These are Rectangle's defaults, using ⌃⌥ as the base. **Checked against Rectangle's source on 2026-11-21.** That check added Center Two Thirds (⌃⌥R, Rectangle's default for current installs) and confirmed Almost Maximize has no default key. There are 23 actions in total.
 
 | Action | Default | Result (inside the screen's visible frame) |
 |---|---|---|
@@ -64,9 +64,10 @@ These are Rectangle's defaults, using ⌃⌥ as the base. **The builder must che
 | Center Third | ⌃⌥F | Middle ⅓ |
 | Last Third | ⌃⌥G | Right ⅓ (bottom on portrait) |
 | First Two Thirds | ⌃⌥E | Left ⅔ (top on portrait) |
+| Center Two Thirds | ⌃⌥R | Middle ⅔ |
 | Last Two Thirds | ⌃⌥T | Right ⅔ (bottom on portrait) |
 | Maximize | ⌃⌥↩ | Whole visible frame |
-| Almost Maximize | none in Rectangle; include it unbound if Rectangle has no default | 90% of the visible frame, centered |
+| Almost Maximize | none (unbound, as in Rectangle) | 90% of the visible frame, centered |
 | Maximize Height | ⌃⌥⇧↑ | Full height, keeps x and width |
 | Make Larger | ⌃⌥= | Grows by a fixed step on each side, clamped to the screen |
 | Make Smaller | ⌃⌥- | Shrinks by the same step, never below a minimum size |
@@ -133,11 +134,11 @@ These are Rectangle's defaults, using ⌃⌥ as the base. **The builder must che
   - A "Restore defaults" button.
   - It uses the existing `SettingsRow` style.
 - **Menu bar.**
-  - The flat list of 22 actions would swamp the menu, so the tool's items go in a **"Window Manager" submenu**, each action showing its shortcut.
+  - The flat list of 23 actions would swamp the menu, so the tool's items go in a **"Window Manager" submenu**, each action showing its shortcut.
   - This needs a small change to `ToolMenuItem` or `MenuContent` so a tool can supply a titled group.
   - Choosing an action from the menu applies it to the window that was frontmost before the menu opened.
 - **Finish step.**
-  - The cheat sheet currently lists every enabled tool's menu items. For Window Manager it would show 22 rows.
+  - The cheat sheet currently lists every enabled tool's menu items. For Window Manager it would show 23 rows.
   - Instead it shows one line, "Window Manager: see its page for all shortcuts" (wording to the builder), or the four halves.
   - The builder picks the mechanism, for example a flag on `ToolMenuItem`.
 
@@ -145,7 +146,7 @@ These are Rectangle's defaults, using ⌃⌥ as the base. **The builder must che
 ```
 Sidekick/Tools/WindowManager/
   WindowManagerTool.swift      Tool conformance, pages, menu items, start/stop
-  WindowAction.swift           enum of the 22 actions, names, default shortcuts, KeyboardShortcuts.Name
+  WindowAction.swift           enum of the 23 actions, names, default shortcuts, KeyboardShortcuts.Name
   Layout.swift                 pure: (action, window frame, visible frame, cycle state) -> target frame
   CycleState.swift             pure: repeated-press tracking
   AXWindow.swift               frontmost window lookup, get/set frame, read-back, identity
