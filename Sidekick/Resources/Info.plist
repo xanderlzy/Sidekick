@@ -18,7 +18,7 @@
 	<key>NSSpeechRecognitionUsageDescription</key><string>Sidekick's Dictation turns your speech into text on this Mac.</string>
 	<key>NSScreenCaptureUsageDescription</key><string>Keep on Top shows a live copy of the window you pin.</string>
 	<key>SUFeedURL</key><string>$(SIDEKICK_FEED_URL)</string>
-	<key>SUPublicEDKey</key><string></string>
+	<key>SUPublicEDKey</key><string>6HTdOJFqwIgCAwE6NmxNONaCCCbEL+6npKf0hW+i57w=</string>
 	<key>SUEnableAutomaticChecks</key><true/>
 	<key>SUScheduledCheckInterval</key><integer>86400</integer>
 	<key>NSHumanReadableCopyright</key><string>Made with care for friends.</string>
