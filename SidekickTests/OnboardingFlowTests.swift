@@ -49,6 +49,31 @@ struct OnboardingFlowTests {
                 == [.accessibility, .screenRecording])
     }
 
+    @Test func reEnableWithAllGrantedNeedsNoSheet() {
+        let tool = FakeTool(id: "d", setupSteps: [.microphone, .accessibility, .speechModel, .practice, .tryIt])
+        #expect(OnboardingFlow.setupSteps(for: tool, satisfied: { $0.isPermission }, setupDone: true).isEmpty)
+    }
+
+    @Test func reEnableWithRevokedPermissionAsksOnlyForThat() {
+        let tool = FakeTool(id: "d", setupSteps: [.microphone, .accessibility, .speechModel, .practice, .tryIt])
+        #expect(OnboardingFlow.setupSteps(for: tool, satisfied: { $0 == .microphone }, setupDone: true)
+                == [.accessibility])
+    }
+
+    @Test func firstSetupKeepsToolSteps() {
+        let tool = FakeTool(id: "d", setupSteps: [.microphone, .accessibility, .speechModel, .practice, .tryIt])
+        #expect(OnboardingFlow.setupSteps(for: tool, satisfied: { $0.isPermission }, setupDone: false)
+                == [.speechModel, .practice, .tryIt])
+    }
+
+    @Test func advanceOnlyFromTheCurrentStep() {
+        var flow = OnboardingFlow(steps: [.welcome, .microphone, .accessibility, .finish], resumeAt: .microphone)
+        #expect(flow.canAdvance(from: .microphone))
+        flow.next()
+        #expect(!flow.canAdvance(from: .microphone))
+        #expect(flow.canAdvance(from: .accessibility))
+    }
+
     @Test func nextAndBackStayInBounds() {
         var flow = OnboardingFlow(steps: [.welcome, .finish])
         flow.back()

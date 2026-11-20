@@ -2,8 +2,9 @@ import Combine
 import SwiftUI
 
 struct MicrophoneStep: View {
-    let next: () -> Void
+    let next: @MainActor @Sendable () -> Void
     @State private var granted = Permissions.microphone
+    @State private var auto = AutoAdvance()
     private let poll = Timer.publish(every: 1, on: .main, in: .common).autoconnect()
 
     var body: some View {
@@ -23,14 +24,11 @@ struct MicrophoneStep: View {
             }
         }
         .onReceive(poll) { _ in if Permissions.microphone != granted { update(Permissions.microphone) } }
+        .onDisappear { auto.cancel() }
     }
 
     private func update(_ value: Bool) {
         withAnimation(Motion.fluid) { granted = value }
-        guard value else { return }
-        Task { @MainActor in
-            try? await Task.sleep(for: .seconds(0.9))
-            next()
-        }
+        if value { auto.schedule(next) }
     }
 }

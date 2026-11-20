@@ -89,6 +89,11 @@ struct OnboardingView: View {
         if flow.isLast { done() } else { withAnimation(Motion.fluid) { flow.next() } }
     }
 
+    /// Step-scoped advance: does nothing if the flow has already left `step` (a late auto-advance, a double click).
+    private func advance(from step: OnboardingStep) -> @MainActor @Sendable () -> Void {
+        { if flow.canAdvance(from: step) { next() } }
+    }
+
     private func toolsChosen() {
         flow.replaceSteps(OnboardingFlow.steps(tools: env.registry.enabled, satisfied: OnboardingFlow.isSatisfied))
         next()
@@ -98,11 +103,11 @@ struct OnboardingView: View {
         switch s {
         case .welcome: WelcomeStep(next: next)
         case .chooseTools: ChooseToolsStep(env: env, next: toolsChosen)
-        case .screenRecording: ScreenRecordingStep(env: env, next: next)
+        case .screenRecording: ScreenRecordingStep(env: env, next: advance(from: s))
         case .finish: FinishStep(env: env, done: done)
-        case .microphone: MicrophoneStep(next: next)
+        case .microphone: MicrophoneStep(next: advance(from: s))
         case .globeKey: GlobeKeyStep(next: next)
-        case .accessibility: dictationStep { AccessibilityStep(env: $0, next: next) }
+        case .accessibility: dictationStep { AccessibilityStep(env: $0, next: advance(from: s)) }
         case .speechModel: dictationStep { SpeechModelStep(env: $0, next: next) }
         case .appleIntelligence: dictationStep { AppleIntelligenceStep(env: $0, next: next) }
         case .practice: dictationStep { PracticeStep(env: $0, key: $0.hotkeys.key, next: next) }

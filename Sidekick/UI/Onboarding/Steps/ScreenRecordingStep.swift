@@ -3,9 +3,10 @@ import SwiftUI
 
 struct ScreenRecordingStep: View {
     let env: AppEnvironment
-    let next: () -> Void
+    let next: @MainActor @Sendable () -> Void
     @State private var granted = Permissions.screenRecording
     @State private var asked = false
+    @State private var auto = AutoAdvance()
     private let poll = Timer.publish(every: 1, on: .main, in: .common).autoconnect()
 
     var body: some View {
@@ -35,10 +36,8 @@ struct ScreenRecordingStep: View {
             withAnimation(Motion.fluid) { granted = true }
             // Bring Sidekick back to the front after the user flips the switch in System Settings.
             env.window.show()
-            Task { @MainActor in
-                try? await Task.sleep(for: .seconds(0.9))
-                next()
-            }
+            auto.schedule(next)
         }
+        .onDisappear { auto.cancel() }
     }
 }

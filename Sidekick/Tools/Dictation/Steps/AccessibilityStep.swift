@@ -3,8 +3,9 @@ import SwiftUI
 
 struct AccessibilityStep: View {
     let env: DictationEnvironment
-    let next: () -> Void
+    let next: @MainActor @Sendable () -> Void
     @State private var granted = Permissions.accessibility
+    @State private var auto = AutoAdvance()
     private let poll = Timer.publish(every: 1, on: .main, in: .common).autoconnect()
 
     var body: some View {
@@ -27,10 +28,8 @@ struct AccessibilityStep: View {
             withAnimation(Motion.fluid) { granted = true }
             // Bring Sidekick back to the front after the user flips the switch in System Settings.
             AppEnvironment.shared.window.show()
-            Task { @MainActor in
-                try? await Task.sleep(for: .seconds(0.9))
-                next()
-            }
+            auto.schedule(next)
         }
+        .onDisappear { auto.cancel() }
     }
 }
