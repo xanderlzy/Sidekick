@@ -22,6 +22,6 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     func applicationDidFinishLaunching(_ notification: Notification) {
         // Unit tests host inside the app; skip setup there.
         guard NSClassFromString("XCTestCase") == nil else { return }
-        _ = AppEnvironment.shared
+        AppEnvironment.shared.registry.startEnabled()
     }
 }

@@ -6,6 +6,8 @@ import SwiftUI
 final class AppEnvironment {
     static let shared = AppEnvironment()
 
+    /// Tools register here (Keep on Top and Dictation arrive in later tasks).
+    let registry = ToolRegistry(tools: [])
     private(set) var window: MainWindowController!
     /// Nil inside unit tests, where Sparkle shouldn't run.
     let updater: Updater? = NSClassFromString("XCTestCase") == nil ? Updater() : nil

@@ -4,19 +4,20 @@ import SwiftUI
 @MainActor
 final class FakeTool: Tool {
     let id: String
-    let name: String
+    var name: String
     let symbol = "circle"
     let summary = "Fake"
     let permissions: [Permission] = []
     let setupSteps: [OnboardingStep] = []
-    let pages: [ToolPage] = []
+    var pages: [ToolPage] = []
     let menuItems: [ToolMenuItem] = []
     private(set) var startCount = 0
     private(set) var stopCount = 0
 
-    init(id: String) {
+    init(id: String, name: String? = nil, pageIDs: [(String, String)] = []) {
         self.id = id
-        self.name = id
+        self.name = name ?? id
+        self.pages = pageIDs.map { ToolPage(id: $0.0, title: $0.1) { AnyView(EmptyView()) } }
     }
 
     func start() { startCount += 1 }

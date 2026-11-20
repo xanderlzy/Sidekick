@@ -1,11 +1,6 @@
 import AppKit
 import SwiftUI
 
-/// Placeholder until the tool registry (Task 3) defines real routes.
-enum Route: Hashable {
-    case home
-}
-
 @MainActor @Observable
 final class AppNavigation {
     var route: Route = .home
@@ -61,7 +56,7 @@ final class MainWindowController: NSObject, NSWindowDelegate {
     }
 }
 
-/// The window's root. Temporarily just the empty main window.
+/// The window's root.
 struct RootView: View {
     let env: AppEnvironment
     let navigation: AppNavigation
@@ -71,23 +66,43 @@ struct RootView: View {
     }
 }
 
-/// Empty shell: wordmark and version, no content yet.
+/// Sidebar + content, both built from the tool registry.
 struct MainWindow: View {
     let env: AppEnvironment
-    let navigation: AppNavigation
+    @Bindable var navigation: AppNavigation
+
+    private var registry: ToolRegistry { env.registry }
 
     var body: some View {
-        VStack(alignment: .leading) {
-            SidekickMark()
-            Spacer()
-            Text("v\(Bundle.main.shortVersion)")
-                .font(Theme.Font.caption).foregroundStyle(Theme.fg(0.3))
+        HStack(spacing: 0) {
+            Sidebar(items: SidebarModel.items(for: registry.enabled), navigation: navigation)
+            Rectangle().fill(Theme.fg(0.06)).frame(width: 1)
+            ZStack { content }
+                .id(navigation.route)
+                .transition(.asymmetric(insertion: .opacity.combined(with: .offset(y: 10)), removal: .opacity))
+                .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
+                .padding(.top, 56).padding(.horizontal, 40).padding(.bottom, 28)
         }
-        .padding(.top, 56).padding(.horizontal, 40).padding(.bottom, 28)
-        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
+        .animation(Motion.fluid, value: navigation.route)
+        .animation(Motion.fluid, value: registry.enabled.map(\.id))
+        .onChange(of: registry.enabled.map(\.id)) { _, _ in
+            navigation.route = SidebarModel.validated(navigation.route, tools: registry.enabled)
+        }
         .foregroundStyle(Theme.fg())
         .background(Theme.bg())
         .ignoresSafeArea()
+    }
+
+    @ViewBuilder
+    private var content: some View {
+        switch navigation.route {
+        case .home: HomeView(env: env)
+        case .general: GeneralSettingsView(env: env)
+        case let .page(toolID, pageID):
+            if let page = registry.enabled.first(where: { $0.id == toolID })?.pages.first(where: { $0.id == pageID }) {
+                page.content()
+            }
+        }
     }
 }
 
