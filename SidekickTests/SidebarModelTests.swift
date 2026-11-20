@@ -9,10 +9,10 @@ struct SidebarModelTests {
     }
 
     @Test func singlePageToolIsOneRow() {
-        let t = FakeTool(id: "keepOnTop", name: "Keep on Top", pageIDs: [("main", "Keep on Top")])
+        let t = FakeTool(id: "timer", name: "Timer", pageIDs: [("main", "Timer")])
         #expect(SidebarModel.items(for: [t]) == [
             .route(.home, title: "Home"), .divider,
-            .route(.page(tool: "keepOnTop", page: "main"), title: "Keep on Top"),
+            .route(.page(tool: "timer", page: "main"), title: "Timer"),
             .divider, .route(.general, title: "General")])
     }
 

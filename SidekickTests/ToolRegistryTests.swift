@@ -6,44 +6,46 @@ import Foundation
 struct ToolRegistryTests {
     private func makeDefaults() -> UserDefaults { UserDefaults(suiteName: UUID().uuidString)! }
 
-    @Test func firstRunUsesDefaultEnabled() {
-        let registry = ToolRegistry(tools: [FakeTool(id: "keepOnTop"), FakeTool(id: "dictation")], defaults: makeDefaults())
-        #expect(registry.isEnabled("keepOnTop"))
-        #expect(!registry.isEnabled("dictation"))
+    @Test func firstRunEnablesDictation() {
+        let registry = ToolRegistry(tools: [FakeTool(id: "other"), FakeTool(id: "dictation")], defaults: makeDefaults())
+        #expect(registry.isEnabled("dictation"))
+        #expect(!registry.isEnabled("other"))
     }
 
     @Test func enablingPersists() {
         let defaults = makeDefaults()
-        let first = ToolRegistry(tools: [FakeTool(id: "keepOnTop"), FakeTool(id: "dictation")], defaults: defaults)
-        first.setEnabled("dictation", true)
-        let second = ToolRegistry(tools: [FakeTool(id: "keepOnTop"), FakeTool(id: "dictation")], defaults: defaults)
-        #expect(second.isEnabled("dictation"))
+        let first = ToolRegistry(tools: [FakeTool(id: "other"), FakeTool(id: "dictation")], defaults: defaults)
+        first.setEnabled("other", true)
+        first.setEnabled("dictation", false)
+        let second = ToolRegistry(tools: [FakeTool(id: "other"), FakeTool(id: "dictation")], defaults: defaults)
+        #expect(second.isEnabled("other"))
+        #expect(!second.isEnabled("dictation"))
     }
 
     @Test func startEnabledStartsOnlyEnabledOnce() {
-        let keep = FakeTool(id: "keepOnTop"), dictation = FakeTool(id: "dictation")
-        let registry = ToolRegistry(tools: [keep, dictation], defaults: makeDefaults())
+        let other = FakeTool(id: "other"), dictation = FakeTool(id: "dictation")
+        let registry = ToolRegistry(tools: [other, dictation], defaults: makeDefaults())
         registry.startEnabled()
         registry.startEnabled()
-        #expect(keep.startCount == 1)
-        #expect(dictation.startCount == 0)
+        #expect(dictation.startCount == 1)
+        #expect(other.startCount == 0)
     }
 
     @Test func noStartBeforeLaunch() {
-        let dictation = FakeTool(id: "dictation")
-        let registry = ToolRegistry(tools: [FakeTool(id: "keepOnTop"), dictation], defaults: makeDefaults())
-        registry.setEnabled("dictation", true)
-        #expect(dictation.startCount == 0)
+        let other = FakeTool(id: "other")
+        let registry = ToolRegistry(tools: [other, FakeTool(id: "dictation")], defaults: makeDefaults())
+        registry.setEnabled("other", true)
+        #expect(other.startCount == 0)
     }
 
     @Test func disablingStopsTool() {
-        let keep = FakeTool(id: "keepOnTop")
-        let registry = ToolRegistry(tools: [keep, FakeTool(id: "dictation")], defaults: makeDefaults())
+        let dictation = FakeTool(id: "dictation")
+        let registry = ToolRegistry(tools: [FakeTool(id: "other"), dictation], defaults: makeDefaults())
         registry.startEnabled()
-        registry.setEnabled("keepOnTop", false)
-        #expect(keep.stopCount == 1)
-        registry.setEnabled("keepOnTop", false)
-        #expect(keep.stopCount == 1)
+        registry.setEnabled("dictation", false)
+        #expect(dictation.stopCount == 1)
+        registry.setEnabled("dictation", false)
+        #expect(dictation.stopCount == 1)
     }
 
     @Test func enabledKeepsRegistryOrder() {

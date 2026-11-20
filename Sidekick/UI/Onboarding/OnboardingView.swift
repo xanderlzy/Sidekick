@@ -1,32 +1,24 @@
 import SwiftUI
 
 /// Full-window setup flow: one idea per screen, one primary action.
-/// Runs first-run setup (`resumable`, remembers its step) or one tool's mini-flow (`cancel` set).
+/// Runs first-run setup or one tool's mini-flow (`cancel` set).
 struct OnboardingView: View {
-    static let savedStepKey = "onboardingStep"
-
     let env: AppEnvironment
-    let resumable: Bool
     let done: () -> Void
     let cancel: (() -> Void)?
     @State private var flow: OnboardingFlow
 
-    init(env: AppEnvironment, steps: [OnboardingStep], resumeAt: OnboardingStep? = nil, resumable: Bool = false,
-         cancel: (() -> Void)? = nil, done: @escaping () -> Void) {
+    init(env: AppEnvironment, steps: [OnboardingStep], cancel: (() -> Void)? = nil, done: @escaping () -> Void) {
         self.env = env
-        self.resumable = resumable
         self.cancel = cancel
         self.done = done
-        _flow = State(initialValue: OnboardingFlow(steps: steps, resumeAt: resumeAt))
+        _flow = State(initialValue: OnboardingFlow(steps: steps))
     }
 
-    /// First-run setup, resuming at the saved step (also settable with `-onboardingStep <name>`).
+    /// First-run setup: welcome, tool picker, the enabled tools' steps, finish.
     static func firstRun(env: AppEnvironment, done: @escaping () -> Void) -> OnboardingView {
         let steps = OnboardingFlow.steps(tools: env.registry.enabled, satisfied: OnboardingFlow.isSatisfied)
-        let saved = UserDefaults.standard.string(forKey: savedStepKey).flatMap(OnboardingStep.init(rawValue:))
-        // A saved step that has since been satisfied (permission granted) resumes at the next one.
-        let resume = saved.map { steps.contains($0) ? $0 : steps[2] }
-        return OnboardingView(env: env, steps: steps, resumeAt: resume, resumable: true, done: done)
+        return OnboardingView(env: env, steps: steps, done: done)
     }
 
     var body: some View {
@@ -72,16 +64,6 @@ struct OnboardingView: View {
         .foregroundStyle(Theme.fg())
         .background(Theme.bg())
         .ignoresSafeArea()
-        .onChange(of: flow.current, initial: true) { _, step in save(step) }
-    }
-
-    private func save(_ step: OnboardingStep) {
-        guard resumable else { return }
-        if step == .finish {
-            UserDefaults.standard.removeObject(forKey: Self.savedStepKey)
-        } else {
-            UserDefaults.standard.set(step.rawValue, forKey: Self.savedStepKey)
-        }
     }
 
     /// Advances; past the last step of a mini-flow, completes it.
@@ -103,7 +85,6 @@ struct OnboardingView: View {
         switch s {
         case .welcome: WelcomeStep(next: next)
         case .chooseTools: ChooseToolsStep(env: env, next: toolsChosen)
-        case .screenRecording: ScreenRecordingStep(env: env, next: advance(from: s))
         case .finish: FinishStep(env: env, done: done)
         case .microphone: MicrophoneStep(next: advance(from: s))
         case .globeKey: GlobeKeyStep(next: next)

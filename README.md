@@ -1,6 +1,6 @@
 # Sidekick
 
-A small menu bar app with handy Mac tools you can turn on one at a time. Everything runs on your Mac: no accounts, and nothing you say or show leaves it.
+A small menu bar app with handy Mac tools you can turn on one at a time. Everything runs on your Mac: no accounts, and nothing you say leaves it.
 
 **Requirements:** Apple Silicon Mac, macOS 26 or later.
 
@@ -15,7 +15,6 @@ A small menu bar app with handy Mac tools you can turn on one at a time. Everyth
 
 ## Tools
 
-- **Keep on Top** (⌃⌥T): floats a live copy of the front window above everything else. Needs Screen Recording permission.
 - **Dictation**: hold Fn and speak, let go to insert clean text wherever you're typing. Runs on-device.
 
 Coming from Parrot? Turn on Dictation and your history comes with you.

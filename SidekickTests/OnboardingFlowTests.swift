@@ -5,35 +5,35 @@ import Testing
 @MainActor
 struct OnboardingFlowTests {
     private let none: (OnboardingStep) -> Bool = { _ in false }
-    private func keepOnTop() -> FakeTool { FakeTool(id: "keepOnTop", setupSteps: [.screenRecording]) }
+    private func listener() -> FakeTool { FakeTool(id: "listener", setupSteps: [.microphone]) }
     private func dictation() -> FakeTool {
-        FakeTool(id: "dictation", setupSteps: [.microphone, .accessibility, .screenRecording])
+        FakeTool(id: "dictation", setupSteps: [.microphone, .accessibility, .speechModel])
     }
 
-    @Test func keepOnTopOnly() {
-        #expect(OnboardingFlow.steps(tools: [keepOnTop()], satisfied: none)
-                == [.welcome, .chooseTools, .screenRecording, .finish])
+    @Test func singleToolSteps() {
+        #expect(OnboardingFlow.steps(tools: [listener()], satisfied: none)
+                == [.welcome, .chooseTools, .microphone, .finish])
     }
 
     @Test func bothToolsInRegistryOrderDeduped() {
-        #expect(OnboardingFlow.steps(tools: [keepOnTop(), dictation()], satisfied: none)
-                == [.welcome, .chooseTools, .screenRecording, .microphone, .accessibility, .finish])
+        #expect(OnboardingFlow.steps(tools: [listener(), dictation()], satisfied: none)
+                == [.welcome, .chooseTools, .microphone, .accessibility, .speechModel, .finish])
     }
 
     @Test func grantedPermissionsSkipped() {
-        #expect(OnboardingFlow.steps(tools: [keepOnTop()], satisfied: { $0 == .screenRecording })
+        #expect(OnboardingFlow.steps(tools: [listener()], satisfied: { $0 == .microphone })
                 == [.welcome, .chooseTools, .finish])
     }
 
-    @Test func resumesAtSavedStep() {
-        let s = OnboardingFlow.steps(tools: [keepOnTop()], satisfied: none)
-        let flow = OnboardingFlow(steps: s, resumeAt: .screenRecording)
-        #expect(flow.current == .screenRecording)
-        #expect(flow.canGoBack)
+    @Test func startsAtFirstStep() {
+        let flow = OnboardingFlow(steps: [.welcome, .chooseTools, .finish])
+        #expect(flow.current == .welcome)
+        #expect(!flow.canGoBack)
     }
 
     @Test func replaceStepsKeepsCurrent() {
-        var flow = OnboardingFlow(steps: [.welcome, .chooseTools, .finish], resumeAt: .chooseTools)
+        var flow = OnboardingFlow(steps: [.welcome, .chooseTools, .finish])
+        flow.next()
         flow.replaceSteps([.welcome, .chooseTools, .microphone, .finish])
         #expect(flow.current == .chooseTools)
         flow.next()
@@ -46,7 +46,7 @@ struct OnboardingFlowTests {
 
     @Test func miniFlowSkipsOnlySatisfied() {
         #expect(OnboardingFlow.setupSteps(for: dictation(), satisfied: { $0 == .microphone })
-                == [.accessibility, .screenRecording])
+                == [.accessibility, .speechModel])
     }
 
     @Test func reEnableWithAllGrantedNeedsNoSheet() {
@@ -67,7 +67,8 @@ struct OnboardingFlowTests {
     }
 
     @Test func advanceOnlyFromTheCurrentStep() {
-        var flow = OnboardingFlow(steps: [.welcome, .microphone, .accessibility, .finish], resumeAt: .microphone)
+        var flow = OnboardingFlow(steps: [.welcome, .microphone, .accessibility, .finish])
+        flow.next()
         #expect(flow.canAdvance(from: .microphone))
         flow.next()
         #expect(!flow.canAdvance(from: .microphone))

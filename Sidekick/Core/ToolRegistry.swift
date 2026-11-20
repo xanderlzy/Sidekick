@@ -10,7 +10,7 @@ final class ToolRegistry {
     private var enabledIDs: Set<String>
     @ObservationIgnored private var running = false
 
-    init(tools: [any Tool], defaults: UserDefaults = .standard, defaultEnabled: Set<String> = ["keepOnTop"]) {
+    init(tools: [any Tool], defaults: UserDefaults = .standard, defaultEnabled: Set<String> = ["dictation"]) {
         self.tools = tools
         self.defaults = defaults
         if let stored = defaults.array(forKey: Self.defaultsKey) as? [String] {

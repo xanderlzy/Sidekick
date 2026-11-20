@@ -5,7 +5,7 @@ import Testing
 @MainActor
 struct SetupCoordinatorTests {
     let a = FakeTool(id: "a", setupSteps: [.microphone])
-    let b = FakeTool(id: "b", setupSteps: [.screenRecording])
+    let b = FakeTool(id: "b", setupSteps: [.accessibility])
     let registry: ToolRegistry
     let setup: SetupCoordinator
 

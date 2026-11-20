@@ -62,9 +62,6 @@ struct GeneralSettingsView: View {
         case .accessibility:
             Permissions.promptAccessibility()
             Permissions.openSettings(.accessibility)
-        case .screenRecording:
-            Permissions.requestScreenRecording()
-            Permissions.openSettings(.screenRecording)
         case .speech:
             SFSpeechRecognizer.requestAuthorization { _ in }
         }

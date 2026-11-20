@@ -7,11 +7,10 @@ enum PermissionError: Error { case microphone, accessibility }
 
 enum Permissions {
     enum Pane {
-        case screenRecording, microphone, accessibility, keyboard, appleIntelligence
+        case microphone, accessibility, keyboard, appleIntelligence
 
         var url: URL {
             switch self {
-            case .screenRecording: URL(string: "x-apple.systempreferences:com.apple.preference.security?Privacy_ScreenCapture")!
             case .microphone: URL(string: "x-apple.systempreferences:com.apple.preference.security?Privacy_Microphone")!
             case .accessibility: URL(string: "x-apple.systempreferences:com.apple.preference.security?Privacy_Accessibility")!
             case .keyboard: URL(string: "x-apple.systempreferences:com.apple.Keyboard-Settings.extension")!
@@ -20,15 +19,9 @@ enum Permissions {
         }
     }
 
-    static var screenRecording: Bool { CGPreflightScreenCaptureAccess() }
     static var microphone: Bool { AVCaptureDevice.authorizationStatus(for: .audio) == .authorized }
     static var accessibility: Bool { AXIsProcessTrusted() }
     static var speech: Bool { SFSpeechRecognizer.authorizationStatus() == .authorized }
-
-    /// Shows the system prompt for Screen Recording (no-op if already decided).
-    static func requestScreenRecording() {
-        _ = CGRequestScreenCaptureAccess()
-    }
 
     static func requestMicrophone() async -> Bool {
         await AVCaptureDevice.requestAccess(for: .audio)

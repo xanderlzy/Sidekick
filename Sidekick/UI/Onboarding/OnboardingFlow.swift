@@ -1,11 +1,11 @@
 enum OnboardingStep: String, Sendable {
-    case welcome, chooseTools, screenRecording, microphone, accessibility
+    case welcome, chooseTools, microphone, accessibility
     case speechModel, appleIntelligence, globeKey, practice, tryIt, finish
 }
 
 extension OnboardingStep {
     /// Steps that ask for a system permission (always re-checked), as opposed to one-time tool setup.
-    var isPermission: Bool { self == .screenRecording || self == .microphone || self == .accessibility }
+    var isPermission: Bool { self == .microphone || self == .accessibility }
 }
 
 /// Pure step sequencing for first-run setup and per-tool setup.
@@ -14,9 +14,9 @@ struct OnboardingFlow {
     private(set) var index: Int
     private(set) var forward = true
 
-    init(steps: [OnboardingStep], resumeAt: OnboardingStep? = nil) {
+    init(steps: [OnboardingStep]) {
         self.steps = steps
-        index = resumeAt.flatMap { steps.firstIndex(of: $0) } ?? 0
+        index = 0
     }
 
     /// Welcome, tool picker, each enabled tool's steps (deduped, minus satisfied), finish.
@@ -36,7 +36,6 @@ struct OnboardingFlow {
     /// True only for permission steps whose permission is already granted.
     @MainActor static func isSatisfied(_ step: OnboardingStep) -> Bool {
         switch step {
-        case .screenRecording: Permissions.screenRecording
         case .microphone: Permissions.microphone
         case .accessibility: Permissions.accessibility
         default: false

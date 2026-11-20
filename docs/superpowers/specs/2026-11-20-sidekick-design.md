@@ -1,5 +1,7 @@
 # Sidekick: design and v1 plan
 
+> **2026-11-21:** Keep on Top removed from v1 at the user's request (the mirror approach didn't match the intended PowerToys-style behavior). Dictation is now the only v1 tool and is on by default in setup.
+
 ## Context
 Sidekick is a Mac app inspired by Windows PowerToys. It is a set of small tools that each person switches on or off. It's a passion project for the author and a few friends, released on GitHub, but it should still be polished, with clear first-run setup. The visual style is black and white and minimal, with fluid motion. It reuses the look of the author's existing app, Parrot (`~/Documents/Parrot`, repo `xanderlzy/parrot`).
 
