@@ -127,4 +127,29 @@ struct ParrotImporterTests {
         #expect(destination.integer(forKey: ParrotImporter.countKey) == 3)
         #expect(try tool.env?.history.container.mainContext.fetchCount(FetchDescriptor<DictationRecord>()) == 3)
     }
+
+    @Test func failedImportLeavesNoStoreAndRetrySucceeds() throws {
+        defer { cleanUp() }
+        try seedParrot()
+        let file = sourceStore.appending(path: "History.store")
+        let good = try Data(contentsOf: file)
+        try Data("not a database".utf8).write(to: file)
+        #expect(throws: (any Error).self) { try importer().importIfNeeded() }
+        #expect(!FileManager.default.fileExists(atPath: destinationStore.appending(path: "History.store").path))
+        #expect(!destination.bool(forKey: "parrotImported"))
+        try good.write(to: file)
+        #expect(try importer().importIfNeeded() == 3)
+        #expect(try count(in: destinationStore) == 3)
+    }
+
+    @Test func happyPathLeavesNoStagingDirectory() throws {
+        defer { cleanUp() }
+        try seedParrot()
+        let before = Set(try FileManager.default.contentsOfDirectory(atPath: FileManager.default.temporaryDirectory.path)
+            .filter { $0.hasPrefix("ParrotImport-") })
+        _ = try importer().importIfNeeded()
+        let after = Set(try FileManager.default.contentsOfDirectory(atPath: FileManager.default.temporaryDirectory.path)
+            .filter { $0.hasPrefix("ParrotImport-") })
+        #expect(after.subtracting(before).isEmpty)
+    }
 }

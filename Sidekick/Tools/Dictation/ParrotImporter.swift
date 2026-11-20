@@ -57,16 +57,42 @@ struct ParrotImporter {
         var imported = 0
         let destinationFile = destinationStore.appending(path: "History.store")
         if hasHistory, !fm.fileExists(atPath: destinationFile.path) {
-            try fm.createDirectory(at: destinationStore, withIntermediateDirectories: true)
-            for suffix in ["", "-shm", "-wal"] {
-                let from = sourceStore.appending(path: "History.store" + suffix)
-                guard fm.fileExists(atPath: from.path) else { continue }
-                try fm.copyItem(at: from, to: destinationStore.appending(path: "History.store" + suffix))
-            }
-            let container = try HistoryStore.makeContainer(in: destinationStore)
-            imported = try container.mainContext.fetchCount(FetchDescriptor<DictationRecord>())
+            imported = try copyStore()
         }
         destination.set(true, forKey: Self.importedKey)
         return imported
+    }
+
+    /// Stages the copy in a temporary directory, verifies it by opening it, then moves it into place,
+    /// so a failure never leaves a partial store behind and the next launch can retry.
+    private func copyStore() throws -> Int {
+        let fm = FileManager.default
+        let staging = fm.temporaryDirectory.appending(path: "ParrotImport-\(UUID().uuidString)")
+        var moved: [URL] = []
+        defer { try? fm.removeItem(at: staging) }
+        do {
+            try fm.createDirectory(at: staging, withIntermediateDirectories: true)
+            // Sidecars first, main file last, to narrow the window if Parrot is writing.
+            for suffix in ["-wal", "-shm", ""] {
+                let from = sourceStore.appending(path: "History.store" + suffix)
+                guard fm.fileExists(atPath: from.path) else { continue }
+                try fm.copyItem(at: from, to: staging.appending(path: "History.store" + suffix))
+            }
+            let count: Int
+            do {
+                let container = try HistoryStore.makeContainer(in: staging)
+                count = try container.mainContext.fetchCount(FetchDescriptor<DictationRecord>())
+            }
+            try fm.createDirectory(at: destinationStore, withIntermediateDirectories: true)
+            for name in try fm.contentsOfDirectory(atPath: staging.path) where name.hasPrefix("History.store") {
+                let to = destinationStore.appending(path: name)
+                try fm.moveItem(at: staging.appending(path: name), to: to)
+                moved.append(to)
+            }
+            return count
+        } catch {
+            moved.forEach { try? fm.removeItem(at: $0) }
+            throw error
+        }
     }
 }
