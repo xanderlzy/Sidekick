@@ -19,6 +19,9 @@ packages:
   KeyboardShortcuts:
     url: https://github.com/sindresorhus/KeyboardShortcuts
     from: "2.0.0"
+  WhisperKit:
+    url: https://github.com/argmaxinc/WhisperKit
+    minorVersion: 1.1.1
 targets:
   Sidekick:
     type: application
@@ -27,6 +30,7 @@ targets:
       - path: Sidekick
     dependencies:
       - package: KeyboardShortcuts
+      - package: WhisperKit
       - package: Sparkle
     settings:
       base:

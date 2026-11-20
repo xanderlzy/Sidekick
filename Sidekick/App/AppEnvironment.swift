@@ -6,7 +6,7 @@ import SwiftUI
 final class AppEnvironment {
     static let shared = AppEnvironment()
 
-    /// Tools register here, in Home's order (Dictation arrives in a later task).
+    /// Tools register here, in Home's order.
     let registry: ToolRegistry
     @ObservationIgnored private(set) var window: MainWindowController!
     /// Nil inside unit tests, where Sparkle shouldn't run.
@@ -33,6 +33,7 @@ final class AppEnvironment {
         weakPins = pins
         registry = ToolRegistry(tools: [
             KeepOnTopTool(pins: pins, requestSetup: { AppEnvironment.shared.requestSetup(toolID: "keepOnTop") }),
+            DictationTool(),
         ])
         window = MainWindowController { [unowned self] nav in AnyView(RootView(env: self, navigation: nav)) }
     }

@@ -100,9 +100,35 @@ struct OnboardingView: View {
         case .chooseTools: ChooseToolsStep(env: env, next: toolsChosen)
         case .screenRecording: ScreenRecordingStep(env: env, next: next)
         case .finish: FinishStep(env: env, done: done)
-        // Dictation's steps are wired in with that tool.
-        case .microphone, .accessibility, .speechModel, .appleIntelligence, .globeKey, .practice, .tryIt:
-            EmptyView().onAppear(perform: next)
+        case .microphone: MicrophoneStep(next: next)
+        case .globeKey: GlobeKeyStep(next: next)
+        case .accessibility: dictationStep { AccessibilityStep(env: $0, next: next) }
+        case .speechModel: dictationStep { SpeechModelStep(env: $0, next: next) }
+        case .appleIntelligence: dictationStep { AppleIntelligenceStep(env: $0, next: next) }
+        case .practice: dictationStep { PracticeStep(env: $0, key: $0.hotkeys.key, next: next) }
+        case .tryIt: dictationStep { TryItStep(key: $0.hotkeys.key, next: next) }
+        }
+    }
+
+    private func dictationStep<Content: View>(@ViewBuilder _ content: @escaping (DictationEnvironment) -> Content) -> some View {
+        DictationStepHost(tool: env.registry.tools.lazy.compactMap { $0 as? DictationTool }.first, content: content)
+    }
+}
+
+/// Starts Dictation (if it isn't running yet) before showing a step that needs its environment.
+private struct DictationStepHost<Content: View>: View {
+    let tool: DictationTool?
+    let content: (DictationEnvironment) -> Content
+    @State private var env: DictationEnvironment?
+
+    var body: some View {
+        if let env = env ?? tool?.env {
+            content(env)
+        } else {
+            Color.clear.onAppear {
+                tool?.start()
+                env = tool?.env
+            }
         }
     }
 }
