@@ -61,8 +61,21 @@ struct RootView: View {
     let env: AppEnvironment
     let navigation: AppNavigation
 
+    @AppStorage("onboardingComplete") private var onboardingComplete = false
+
     var body: some View {
-        MainWindow(env: env, navigation: navigation)
+        ZStack {
+            if onboardingComplete {
+                MainWindow(env: env, navigation: navigation).transition(.opacity)
+            } else {
+                OnboardingView.firstRun(env: env) {
+                    withAnimation(Motion.gentle) { onboardingComplete = true }
+                    navigation.route = .home
+                    env.window.close()
+                }
+                .transition(.opacity)
+            }
+        }
     }
 }
 
@@ -83,6 +96,14 @@ struct MainWindow: View {
                 .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
                 .padding(.top, 56).padding(.horizontal, 40).padding(.bottom, 28)
         }
+        .overlay {
+            if let id = env.pendingSetup, let tool = registry.tools.first(where: { $0.id == id }) {
+                SetupSheet(env: env, tool: tool,
+                           steps: OnboardingFlow.setupSteps(for: tool, satisfied: OnboardingFlow.isSatisfied))
+                    .transition(.opacity)
+            }
+        }
+        .animation(Motion.fluid, value: env.pendingSetup)
         .animation(Motion.fluid, value: navigation.route)
         .animation(Motion.fluid, value: registry.enabled.map(\.id))
         .onChange(of: registry.enabled.map(\.id)) { _, _ in

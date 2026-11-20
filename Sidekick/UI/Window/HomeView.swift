@@ -18,9 +18,9 @@ struct HomeView: View {
         .scrollIndicators(.never)
     }
 
-    /// The one place a toggle turns into an action. Task 4 reroutes "on" through setup.
+    /// The one place a toggle turns into an action. Turning on goes through setup; off is immediate.
     private func setEnabled(_ tool: any Tool, _ on: Bool) {
-        env.registry.setEnabled(tool.id, on)
+        if on { env.requestSetup(toolID: tool.id) } else { env.registry.setEnabled(tool.id, false) }
     }
 
     private func card(_ tool: any Tool) -> some View {
