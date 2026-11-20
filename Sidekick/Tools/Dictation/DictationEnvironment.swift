@@ -15,6 +15,7 @@ final class DictationEnvironment {
     let stats: StatsStore
     let history: HistoryStore
     private var pruneTimer: Timer?
+    var isPruning: Bool { pruneTimer != nil }
     private(set) var pill: PillPresenter?
     let polishClient = SystemModelClient()
     let whisperModel: WhisperModelStore

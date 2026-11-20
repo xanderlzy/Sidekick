@@ -12,6 +12,7 @@ final class MainWindowController: NSObject, NSWindowDelegate {
     let navigation = AppNavigation()
     private var window: NSWindow?
     private let makeContent: (AppNavigation) -> AnyView
+    var onClose: () -> Void = {}
 
     init(makeContent: @escaping (AppNavigation) -> AnyView) {
         self.makeContent = makeContent
@@ -52,6 +53,7 @@ final class MainWindowController: NSObject, NSWindowDelegate {
     }
 
     func windowWillClose(_ notification: Notification) {
+        onClose()
         NSApp.setActivationPolicy(.accessory)
     }
 }
@@ -97,13 +99,13 @@ struct MainWindow: View {
                 .padding(.top, 56).padding(.horizontal, 40).padding(.bottom, 28)
         }
         .overlay {
-            if let id = env.pendingSetup, let tool = registry.tools.first(where: { $0.id == id }) {
-                SetupSheet(env: env, tool: tool,
+            if let id = env.setup.pending, let tool = registry.tools.first(where: { $0.id == id }) {
+                SetupSheet(env: env,
                            steps: OnboardingFlow.setupSteps(for: tool, satisfied: OnboardingFlow.isSatisfied))
                     .transition(.opacity)
             }
         }
-        .animation(Motion.fluid, value: env.pendingSetup)
+        .animation(Motion.fluid, value: env.setup.pending)
         .animation(Motion.fluid, value: navigation.route)
         .animation(Motion.fluid, value: registry.enabled.map(\.id))
         .onChange(of: registry.enabled.map(\.id)) { _, _ in

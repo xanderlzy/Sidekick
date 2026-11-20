@@ -39,11 +39,19 @@ struct DictationToolTests {
         #expect(tool.env === env)
     }
 
-    @Test func stopTearsDown() {
+    /// Runs the services that are safe in tests (pill, pruning timer); the event tap and mic stay untouched.
+    @Test func stopTearsDown() throws {
         let tool = makeTool()
         tool.start()
+        let env = try #require(tool.env)
+        env.showPill()
+        env.startPruning()
+        #expect(env.pill != nil)
+        #expect(env.isPruning)
         tool.stop()
-        #expect(tool.env?.hotkeys.isRunning == false)
+        #expect(env.pill == nil)
+        #expect(!env.isPruning)
+        #expect(!env.hotkeys.isRunning)
     }
 
     @Test func metadata() {

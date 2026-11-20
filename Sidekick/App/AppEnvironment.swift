@@ -12,19 +12,11 @@ final class AppEnvironment {
     /// Nil inside unit tests, where Sparkle shouldn't run.
     @ObservationIgnored let updater: Updater? = NSClassFromString("XCTestCase") == nil ? Updater() : nil
 
-    /// ID of the tool whose setup sheet is showing.
-    var pendingSetup: String?
+    /// The setup sheet that's showing, if any.
+    let setup: SetupCoordinator
 
     /// Turns a tool on, first showing its setup sheet if it needs steps the Mac hasn't satisfied yet.
-    func requestSetup(toolID: String) {
-        guard let tool = registry.tools.first(where: { $0.id == toolID }) else { return }
-        if OnboardingFlow.setupSteps(for: tool, satisfied: OnboardingFlow.isSatisfied).isEmpty {
-            registry.setEnabled(toolID, true)
-        } else {
-            pendingSetup = toolID
-            window.show()
-        }
-    }
+    func requestSetup(toolID: String) { setup.request(toolID: toolID) }
 
     private init() {
         // Each mirror unpins itself when its source goes away; weak so the controller isn't kept alive by its panels.
@@ -35,6 +27,10 @@ final class AppEnvironment {
             KeepOnTopTool(pins: pins, requestSetup: { AppEnvironment.shared.requestSetup(toolID: "keepOnTop") }),
             DictationTool(),
         ])
+        setup = SetupCoordinator(registry: registry)
         window = MainWindowController { [unowned self] nav in AnyView(RootView(env: self, navigation: nav)) }
+        setup.showWindow = { [unowned self] in window.show() }
+        // Closing the window mid-sheet abandons that setup.
+        window.onClose = { [unowned self] in setup.cancel() }
     }
 }

@@ -75,6 +75,7 @@
 		8F2293B616676C1FC3A94D4B /* start.caf in Resources */ = {isa = PBXBuildFile; fileRef = 118EC229E410AA441E0A9717 /* start.caf */; };
 		952D15683DFC3B45E5B1A90D /* DictationEnvironment.swift in Sources */ = {isa = PBXBuildFile; fileRef = 08BB5F55949378EF26640121 /* DictationEnvironment.swift */; };
 		99A3B2706FCBFD7B02448C0E /* FinishStep.swift in Sources */ = {isa = PBXBuildFile; fileRef = F76FB3B9D5616476CB5FC04D /* FinishStep.swift */; };
+		99A60D9013BC6BE87DFD1A22 /* SetupCoordinatorTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 591420A4E15965220176DA31 /* SetupCoordinatorTests.swift */; };
 		9A123AB08610C50E2A87C69C /* DictationSettingsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3B8FCAC7FAE1F08576AC7CD6 /* DictationSettingsView.swift */; };
 		A2D8B875CA7408DA5CF248FD /* DictationTool.swift in Sources */ = {isa = PBXBuildFile; fileRef = CCDE8C3465CCD71F3C2F10E0 /* DictationTool.swift */; };
 		A9765A9EE272FDEAF4FCDDB8 /* Permission.swift in Sources */ = {isa = PBXBuildFile; fileRef = 982C999D5835C76DE74AE8B2 /* Permission.swift */; };
@@ -102,6 +103,7 @@
 		F434A2399F1B0A34B8D98E0F /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = 76C8C251F396CE71EE84107D /* Assets.xcassets */; };
 		F562B1C732A10A2A19AE9E7B /* HotkeyKeyTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = BCAF18B8646B067D2D002F33 /* HotkeyKeyTests.swift */; };
 		F7972472A9978B5D1FA0B9FF /* HotkeyStateMachineTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7DA57C732EB5910BD03F08DF /* HotkeyStateMachineTests.swift */; };
+		FC3BD597C77D123023B2F50F /* SetupCoordinator.swift in Sources */ = {isa = PBXBuildFile; fileRef = F0DFFBD0EED8633FFFF6CF3B /* SetupCoordinator.swift */; };
 		FE6B52E845D74FCE36FA6989 /* PiPLayoutTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = D038F37D46A35D0D91C98993 /* PiPLayoutTests.swift */; };
 /* End PBXBuildFile section */
 
@@ -146,6 +148,7 @@
 		503B3711F134294E37C60A58 /* RetentionPolicy.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RetentionPolicy.swift; sourceTree = "<group>"; };
 		527EF396FBDAECEB4E893DD9 /* AppleIntelligenceStep.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppleIntelligenceStep.swift; sourceTree = "<group>"; };
 		57213F0D475945E645717D51 /* TextInserter.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TextInserter.swift; sourceTree = "<group>"; };
+		591420A4E15965220176DA31 /* SetupCoordinatorTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SetupCoordinatorTests.swift; sourceTree = "<group>"; };
 		5AF713BED9E2C0D376BFEA05 /* DictationControllerTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DictationControllerTests.swift; sourceTree = "<group>"; };
 		5B0B3EA91745C5A087567BA2 /* LoginItem.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LoginItem.swift; sourceTree = "<group>"; };
 		5C9E7AB1B63509DBB3A2E5C1 /* SidebarModelTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SidebarModelTests.swift; sourceTree = "<group>"; };
@@ -203,6 +206,7 @@
 		E924C2E6871CC063401E4C26 /* PinController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PinController.swift; sourceTree = "<group>"; };
 		ED3A93968B393B57C3779295 /* Theme.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Theme.swift; sourceTree = "<group>"; };
 		EF72182ADA2960590931BF48 /* PracticeStep.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PracticeStep.swift; sourceTree = "<group>"; };
+		F0DFFBD0EED8633FFFF6CF3B /* SetupCoordinator.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SetupCoordinator.swift; sourceTree = "<group>"; };
 		F24638A04B02DAE08D2EF2B3 /* WindowFinderTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WindowFinderTests.swift; sourceTree = "<group>"; };
 		F3B87F76E629BB320E212D1B /* OnboardingFlowTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = OnboardingFlowTests.swift; sourceTree = "<group>"; };
 		F62D7B8D8E3C3AD83969EF70 /* WelcomeStep.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WelcomeStep.swift; sourceTree = "<group>"; };
@@ -331,6 +335,7 @@
 				3D437996FD179A89893C1AB1 /* PolisherTests.swift */,
 				7B7878C0835F4063D25F78EF /* PolishGuardTests.swift */,
 				D6A5898E089CFE1E23F08A3F /* RetentionPolicyTests.swift */,
+				591420A4E15965220176DA31 /* SetupCoordinatorTests.swift */,
 				5C9E7AB1B63509DBB3A2E5C1 /* SidebarModelTests.swift */,
 				B613600EE9307BC52AE8BF58 /* SmokeTests.swift */,
 				BC1DBA9E1BFDCAB25485B9FD /* SoundsTests.swift */,
@@ -441,6 +446,7 @@
 			isa = PBXGroup;
 			children = (
 				7C4316342E103195DD79E6BA /* AppEnvironment.swift */,
+				F0DFFBD0EED8633FFFF6CF3B /* SetupCoordinator.swift */,
 				031566B2F03B372AA109F61F /* SidekickApp.swift */,
 			);
 			path = App;
@@ -685,6 +691,7 @@
 				D5A354617A6989EB40B7D726 /* RetentionPolicy.swift in Sources */,
 				68D7B3C90E8948EC14D6610E /* ScreenRecordingStep.swift in Sources */,
 				0CF6D1E00E0479BD641685AB /* SettingsRow.swift in Sources */,
+				FC3BD597C77D123023B2F50F /* SetupCoordinator.swift in Sources */,
 				7CE255D64286301611A5319A /* SetupSheet.swift in Sources */,
 				11E26A989C94170489207400 /* Sidebar.swift in Sources */,
 				4F917AC4A926B732ADDEA3EA /* SidekickApp.swift in Sources */,
@@ -725,6 +732,7 @@
 				2222BC6606D65986B214A719 /* PolishGuardTests.swift in Sources */,
 				C6518DA7084EAFEE98C583CE /* PolisherTests.swift in Sources */,
 				CD16EFC1A0AE35DD815A3040 /* RetentionPolicyTests.swift in Sources */,
+				99A60D9013BC6BE87DFD1A22 /* SetupCoordinatorTests.swift in Sources */,
 				3402BF89CC003EF4D7569CC9 /* SidebarModelTests.swift in Sources */,
 				C1CD20990074591297ED4A23 /* SmokeTests.swift in Sources */,
 				7F6D2111FFBFBF3244D3193F /* SoundsTests.swift in Sources */,
