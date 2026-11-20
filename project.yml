@@ -1,0 +1,69 @@
+name: Sidekick
+options:
+  bundleIdPrefix: com.sidekick
+  deploymentTarget:
+    macOS: "26.0"
+  createIntermediateGroups: true
+settings:
+  base:
+    SWIFT_VERSION: "6.0"
+    ARCHS: arm64
+    MARKETING_VERSION: "0.1.0"
+    CURRENT_PROJECT_VERSION: "1"
+    DEAD_CODE_STRIPPING: YES
+    SIDEKICK_FEED_URL: "https://github.com/xanderlzy/sidekick/releases/latest/download/appcast.xml"
+packages:
+  Sparkle:
+    url: https://github.com/sparkle-project/Sparkle
+    minorVersion: 2.10.1
+  KeyboardShortcuts:
+    url: https://github.com/sindresorhus/KeyboardShortcuts
+    from: "2.0.0"
+targets:
+  Sidekick:
+    type: application
+    platform: macOS
+    sources:
+      - path: Sidekick
+    dependencies:
+      - package: KeyboardShortcuts
+      - package: Sparkle
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: com.sidekick.app
+        PRODUCT_NAME: Sidekick
+        INFOPLIST_FILE: Sidekick/Resources/Info.plist
+        CODE_SIGN_ENTITLEMENTS: Sidekick/Resources/Sidekick.entitlements
+        CODE_SIGN_STYLE: Manual
+        CODE_SIGN_IDENTITY: "Sidekick Self-Signed"
+        DEVELOPMENT_TEAM: ""
+        ENABLE_HARDENED_RUNTIME: NO
+        ENABLE_DEBUG_DYLIB: NO
+        OTHER_CODE_SIGN_FLAGS: "--timestamp=none"
+        ASSETCATALOG_COMPILER_APPICON_NAME: AppIcon
+        ENABLE_APP_SANDBOX: NO
+  SidekickTests:
+    type: bundle.unit-test
+    platform: macOS
+    sources:
+      - path: SidekickTests
+    dependencies:
+      - target: Sidekick
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: com.sidekick.app.tests
+        TEST_HOST: "$(BUILT_PRODUCTS_DIR)/Sidekick.app/Contents/MacOS/Sidekick"
+        BUNDLE_LOADER: "$(TEST_HOST)"
+        CODE_SIGN_STYLE: Manual
+        CODE_SIGN_IDENTITY: "Sidekick Self-Signed"
+        DEVELOPMENT_TEAM: ""
+        GENERATE_INFOPLIST_FILE: YES
+schemes:
+  Sidekick:
+    build:
+      targets:
+        Sidekick: all
+        SidekickTests: [test]
+    test:
+      targets:
+        - SidekickTests
