@@ -65,10 +65,12 @@ final class MirrorPanel: NSPanel, MirrorPresenting {
         NSAnimationContext.animate(Motion.snappy) {
             animator().setFrame(shrunk, display: true)
             animator().alphaValue = 0
-        } completion: { [weak self] in
+        } completion: {
+            // Strong on purpose: PinController has already dropped the panel, so this one-shot
+            // completion is what keeps it alive until it has animated out and stopped its stream.
             MainActor.assumeIsolated {
-                self?.stream.stop()
-                self?.close()
+                self.stream.stop()
+                self.close()
             }
         }
     }
