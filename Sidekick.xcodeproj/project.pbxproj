@@ -102,6 +102,7 @@
 		B28B8EAAEBC205CDA4BEC261 /* SnapPreviewPanel.swift in Sources */ = {isa = PBXBuildFile; fileRef = 31F6465A286236D64BE2E7B0 /* SnapPreviewPanel.swift */; };
 		B6F5EEA7D099BB9E29A83D0A /* OnboardingView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1C4434A7DB3FAFA8279B78F9 /* OnboardingView.swift */; };
 		B9F1B7C7872106B5B1174E0E /* PillPanel.swift in Sources */ = {isa = PBXBuildFile; fileRef = C8914312E0D2B80B10C59462 /* PillPanel.swift */; };
+		BA2B118BB942ED23222DFD60 /* SystemTiling.swift in Sources */ = {isa = PBXBuildFile; fileRef = 49E5BA73FFEACB1EEA1AB5A9 /* SystemTiling.swift */; };
 		BCF6080B1475DF6165BE2640 /* stop.caf in Resources */ = {isa = PBXBuildFile; fileRef = 6F0DFC67B3777916C6396139 /* stop.caf */; };
 		C1CD20990074591297ED4A23 /* SmokeTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = B613600EE9307BC52AE8BF58 /* SmokeTests.swift */; };
 		C2FECD0BFAD910D576585D7F /* PracticeStep.swift in Sources */ = {isa = PBXBuildFile; fileRef = EF72182ADA2960590931BF48 /* PracticeStep.swift */; };
@@ -169,6 +170,7 @@
 		468C6A177719F42182D1BD99 /* AudioCapture.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AudioCapture.swift; sourceTree = "<group>"; };
 		4817B21B90EE9B1916355264 /* WindowMoverTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WindowMoverTests.swift; sourceTree = "<group>"; };
 		484B9F6A431F76D236163A0B /* Polisher.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Polisher.swift; sourceTree = "<group>"; };
+		49E5BA73FFEACB1EEA1AB5A9 /* SystemTiling.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SystemTiling.swift; sourceTree = "<group>"; };
 		49E61FF2433BE0633C831BB6 /* SnapAreas.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SnapAreas.swift; sourceTree = "<group>"; };
 		503B3711F134294E37C60A58 /* RetentionPolicy.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RetentionPolicy.swift; sourceTree = "<group>"; };
 		51BDFCDF671258A0D3007E9D /* AXWindowTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AXWindowTests.swift; sourceTree = "<group>"; };
@@ -581,6 +583,7 @@
 				0EA4863456AF2598AC052291 /* ScreenGeometry.swift */,
 				49E61FF2433BE0633C831BB6 /* SnapAreas.swift */,
 				31F6465A286236D64BE2E7B0 /* SnapPreviewPanel.swift */,
+				49E5BA73FFEACB1EEA1AB5A9 /* SystemTiling.swift */,
 				9484DF6838A372E3C0C7F9B5 /* WindowAction.swift */,
 				9DCA823973E53280386CCE28 /* WindowLayout.swift */,
 				91753E719A672316264B157B /* WindowManagerSettingsView.swift */,
@@ -762,6 +765,7 @@
 				1E98E45397BF058C3AB58F51 /* Sounds.swift in Sources */,
 				2B681CF264FE0CDA86311F2A /* SpeechModelStep.swift in Sources */,
 				661F1D146762334651C90B4C /* StatsStore.swift in Sources */,
+				BA2B118BB942ED23222DFD60 /* SystemTiling.swift in Sources */,
 				11FE6BAE4D38A5AC8AB2BAE3 /* TextInserter.swift in Sources */,
 				42F44437E49971B59B61E0AF /* Theme.swift in Sources */,
 				CE9F6123BEC6F541C6AAD2EB /* Tool.swift in Sources */,

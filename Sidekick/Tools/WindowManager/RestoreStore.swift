@@ -1,7 +1,7 @@
 import CoreGraphics
 
 /// Remembers each window's frame before its first managed move, for Restore.
-struct RestoreStore: @unchecked Sendable {
+struct RestoreStore {
     static let capacity = 100
 
     private var frames: [AnyHashable: CGRect] = [:]

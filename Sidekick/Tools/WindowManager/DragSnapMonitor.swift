@@ -67,6 +67,11 @@ final class DragSnapMonitor: SnapController {
     }
 
     private func dragged() {
+        if DragClassifier.isStaleDrag(pressedButtons: NSEvent.pressedMouseButtons) {
+            preview?.hide()
+            reset()
+            return
+        }
         guard let downPoint, !ignored else { return }
         let cursor = Self.cursor()
         if !resolved {

@@ -24,7 +24,7 @@ struct ScreenRenderTests {
         let store = FileManager.default.temporaryDirectory.appending(path: suite, directoryHint: .isDirectory)
         dictation = DictationTool(defaults: defaults, startServices: false, storeDirectory: store)
         dictation.start()
-        env = AppEnvironment(tools: [dictation, WindowManagerTool(defaults: defaults)], defaults: defaults)
+        env = AppEnvironment(tools: [dictation, WindowManagerTool(defaults: defaults, systemEdgeTiling: { true })], defaults: defaults)
         env.registry.setEnabled("windowManager", true)
     }
 

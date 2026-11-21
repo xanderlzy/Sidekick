@@ -55,7 +55,9 @@ enum WindowLayout {
             let h = min(window.height, max(minSize.height, window.height - 2 * sizeStep))
             return CGRect(x: window.midX - w / 2, y: window.midY - h / 2, width: w, height: h)
         case .center:
-            return CGRect(x: v.midX - window.width / 2, y: v.midY - window.height / 2, width: window.width, height: window.height)
+            // A window larger than the visible area is clamped into it, so its title bar stays below the menu bar.
+            let w = min(window.width, v.width), h = min(window.height, v.height)
+            return CGRect(x: v.midX - w / 2, y: v.midY - h / 2, width: w, height: h)
         case .restore:
             return nil
         case .nextDisplay, .previousDisplay:

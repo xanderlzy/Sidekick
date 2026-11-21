@@ -52,4 +52,11 @@ struct DragClassifierTests {
         let applied = CGRect(x: 0, y: 25, width: 800, height: 900)
         #expect(!DragClassifier.isStillSnapped(applied: applied, start: CGRect(x: 6, y: 25, width: 800, height: 900), slack: 3))
     }
+
+    @Test func dragWithoutLeftButtonIsStale() {
+        #expect(DragClassifier.isStaleDrag(pressedButtons: 0))
+        #expect(DragClassifier.isStaleDrag(pressedButtons: 2))
+        #expect(!DragClassifier.isStaleDrag(pressedButtons: 1))
+        #expect(!DragClassifier.isStaleDrag(pressedButtons: 3))
+    }
 }

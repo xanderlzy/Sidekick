@@ -1,8 +1,7 @@
 import CoreGraphics
 
-/// @unchecked Sendable: AnyHashable is not Sendable, but only value-type window keys are stored.
 /// Tracks repeat presses of the same action on the same window so halves/thirds can cycle.
-struct CycleState: @unchecked Sendable {
+struct CycleState {
     static let cycling: Set<WindowAction> = [.leftHalf, .rightHalf, .topHalf, .bottomHalf, .firstThird, .lastThird]
     static let stepCount = 3
     static let tolerance: CGFloat = 2

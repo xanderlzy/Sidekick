@@ -19,12 +19,18 @@ final class WindowManagerTool: Tool {
     private let mover: WindowMover
     private let snapping: any SnapController
     private var snapRunning = false
+    private let systemEdgeTiling: @MainActor () -> Bool
 
-    init(defaults: UserDefaults = .standard, mover: WindowMover = WindowMover(), snapping: (any SnapController)? = nil) {
+    init(defaults: UserDefaults = .standard, mover: WindowMover = WindowMover(), snapping: (any SnapController)? = nil,
+         systemEdgeTiling: @escaping @MainActor () -> Bool = { SystemTiling.edgeTilingEnabled() }) {
         self.defaults = defaults
         self.mover = mover
         self.snapping = snapping ?? DragSnapMonitor(mover: mover)
+        self.systemEdgeTiling = systemEdgeTiling
     }
+
+    /// Whether macOS's own drag-to-edge tiling is on, which competes with drag-to-snap.
+    var systemEdgeTilingOn: Bool { systemEdgeTiling() }
 
     var snapEnabled: Bool {
         defaults.object(forKey: Self.snapEnabledKey) as? Bool ?? true
@@ -39,7 +45,7 @@ final class WindowManagerTool: Tool {
 
     var menuItems: [ToolMenuItem] {
         WindowAction.allCases.map { action in
-            ToolMenuItem(id: action.rawValue, title: action.title, shortcut: action.shortcutName,
+            ToolMenuItem(id: "wm.\(action.rawValue)", title: action.title, shortcut: action.shortcutName,
                          action: { [mover] in mover.perform(action) },
                          inCheatSheet: [.leftHalf, .rightHalf, .topHalf, .bottomHalf].contains(action))
         }

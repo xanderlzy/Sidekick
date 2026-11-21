@@ -7,7 +7,7 @@ enum PermissionError: Error { case microphone, accessibility }
 
 enum Permissions {
     enum Pane {
-        case microphone, accessibility, keyboard, appleIntelligence
+        case microphone, accessibility, keyboard, appleIntelligence, desktopAndDock
 
         var url: URL {
             switch self {
@@ -15,6 +15,7 @@ enum Permissions {
             case .accessibility: URL(string: "x-apple.systempreferences:com.apple.preference.security?Privacy_Accessibility")!
             case .keyboard: URL(string: "x-apple.systempreferences:com.apple.Keyboard-Settings.extension")!
             case .appleIntelligence: URL(string: "x-apple.systempreferences:com.apple.Siri-Settings.extension")!
+            case .desktopAndDock: URL(string: "x-apple.systempreferences:com.apple.Desktop-Settings.extension")!
             }
         }
     }

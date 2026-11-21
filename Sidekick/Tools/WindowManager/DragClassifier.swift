@@ -38,4 +38,10 @@ enum DragClassifier {
         return abs(applied.minX - start.minX) <= originTolerance && abs(applied.minY - start.minY) <= originTolerance
             && abs(applied.width - start.width) <= snappedTolerance && abs(applied.height - start.height) <= snappedTolerance
     }
+
+    /// True when a drag event arrives with the left button already up: the mouse-up went
+    /// elsewhere (Mission Control, a Space switch, a modal), so the drag is over.
+    static func isStaleDrag(pressedButtons: Int) -> Bool {
+        pressedButtons & 1 == 0
+    }
 }

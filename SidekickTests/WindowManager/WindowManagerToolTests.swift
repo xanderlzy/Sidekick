@@ -27,12 +27,14 @@ struct WindowManagerToolTests {
     @Test func menuHasAllActionsWithFourInCheatSheet() {
         let items = WindowManagerTool(defaults: defaults).menuItems
         #expect(items.count == 23)
-        #expect(items.filter(\.inCheatSheet).map(\.id) == ["leftHalf", "rightHalf", "topHalf", "bottomHalf"])
+        #expect(items.allSatisfy { $0.id.hasPrefix("wm.") })
+        #expect(items.filter(\.inCheatSheet).map(\.id) == ["wm.leftHalf", "wm.rightHalf", "wm.topHalf", "wm.bottomHalf"])
     }
 
     @Test func startStopIdempotent() {
         let snap = FakeSnap()
         let tool = WindowManagerTool(defaults: defaults, snapping: snap)
+        defer { tool.stop() }
         tool.start(); tool.start()
         #expect(tool.isRunning)
         #expect(snap.starts == 1)
@@ -45,6 +47,7 @@ struct WindowManagerToolTests {
         defaults.set(false, forKey: WindowManagerTool.snapEnabledKey)
         let snap = FakeSnap()
         let tool = WindowManagerTool(defaults: defaults, snapping: snap)
+        defer { tool.stop() }
         tool.start()
         #expect(snap.starts == 0)
         tool.setSnapping(true)
@@ -54,6 +57,7 @@ struct WindowManagerToolTests {
     @Test func accessibilityGrantedRestartsWhenRunning() {
         let snap = FakeSnap()
         let tool = WindowManagerTool(defaults: defaults, snapping: snap)
+        defer { tool.stop() }
         tool.accessibilityGranted()
         #expect(snap.starts == 0)
         tool.start()
@@ -67,5 +71,37 @@ struct WindowManagerToolTests {
                                       storeDirectory: FileManager.default.temporaryDirectory.appending(path: UUID().uuidString))
         let registry = ToolRegistry(tools: [dictation, WindowManagerTool(defaults: sandbox)], defaults: sandbox)
         #expect(registry.enabled.map(\.id) == ["dictation"])
+    }
+
+    @Test func systemEdgeTilingIsReadFromProvider() {
+        #expect(WindowManagerTool(defaults: defaults, systemEdgeTiling: { true }).systemEdgeTilingOn)
+        #expect(!WindowManagerTool(defaults: defaults, systemEdgeTiling: { false }).systemEdgeTilingOn)
+    }
+}
+
+struct SystemTilingTests {
+    private func suite(_ values: [String: Bool]) -> UserDefaults {
+        let d = UserDefaults(suiteName: "SystemTilingTests-\(UUID())")!
+        for (k, v) in values { d.set(v, forKey: k) }
+        return d
+    }
+
+    @Test func missingKeysMeanOn() {
+        #expect(SystemTiling.edgeTilingEnabled(suite([:])))
+        #expect(SystemTiling.edgeTilingEnabled(nil))
+    }
+
+    @Test func bothOffMeansOff() {
+        #expect(!SystemTiling.edgeTilingEnabled(suite([SystemTiling.edgeKey: false, SystemTiling.topEdgeKey: false])))
+    }
+
+    @Test func mixedMeansOn() {
+        #expect(SystemTiling.edgeTilingEnabled(suite([SystemTiling.edgeKey: false, SystemTiling.topEdgeKey: true])))
+        #expect(SystemTiling.edgeTilingEnabled(suite([SystemTiling.edgeKey: true, SystemTiling.topEdgeKey: false])))
+        #expect(SystemTiling.edgeTilingEnabled(suite([SystemTiling.edgeKey: false])))
+    }
+
+    @Test func settingsURLOpensDesktopAndDock() {
+        #expect(Permissions.Pane.desktopAndDock.url.absoluteString == "x-apple.systempreferences:com.apple.Desktop-Settings.extension")
     }
 }

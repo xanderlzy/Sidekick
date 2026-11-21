@@ -99,4 +99,9 @@ struct WindowLayoutTests {
     @Test func restoreIsNil() {
         #expect(t(.restore) == nil)
     }
+
+    @Test func centerClampsOversizedWindowIntoVisible() {
+        #expect(t(.center, window: CGRect(x: 0, y: 0, width: 2000, height: 1200)) == CGRect(x: 0, y: 25, width: 1600, height: 900))
+        #expect(t(.center, window: CGRect(x: 0, y: 0, width: 2000, height: 300)) == CGRect(x: 0, y: 325, width: 1600, height: 300))
+    }
 }

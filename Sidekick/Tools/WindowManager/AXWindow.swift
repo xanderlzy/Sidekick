@@ -30,8 +30,17 @@ struct AXElementKey: Hashable {
 final class AXWindow: WindowHandle {
     private let element: AXUIElement
 
-    /// Caps how long one AX call may wait on a busy app, so it can't stall the main thread.
+    /// Caps how long one AX read may wait on a busy app, so it can't stall the main thread.
     static let messagingTimeout: Float = 0.25
+    /// Writes get longer: heavy apps can take a while to resize, and a timed-out write may still land.
+    static let writeTimeout: Float = 1
+
+    /// Makes `messagingTimeout` the process-wide default (set on the system-wide element), so
+    /// elements we don't create ourselves, such as the frontmost app or a hit-test result, can't
+    /// block for the ~6s system default either. Evaluated once, before the first AX call.
+    private static let globalTimeout: Void = {
+        AXUIElementSetMessagingTimeout(AXUIElementCreateSystemWide(), messagingTimeout)
+    }()
 
     init(element: AXUIElement) {
         self.element = element
@@ -50,6 +59,8 @@ final class AXWindow: WindowHandle {
 
     @discardableResult
     func setFrame(_ frame: CGRect) -> Bool {
+        AXUIElementSetMessagingTimeout(element, Self.writeTimeout)
+        defer { AXUIElementSetMessagingTimeout(element, Self.messagingTimeout) }
         // Size, position, size: some apps clamp size to the current screen.
         let first = set(size: frame.size)
         let moved = set(position: frame.origin)
@@ -58,6 +69,7 @@ final class AXWindow: WindowHandle {
     }
 
     static func focused() -> AXWindow? {
+        _ = globalTimeout
         guard let app = NSWorkspace.shared.frontmostApplication else { return nil }
         let appElement = AXUIElementCreateApplication(app.processIdentifier)
         var value: CFTypeRef?
@@ -67,8 +79,8 @@ final class AXWindow: WindowHandle {
     }
 
     static func at(_ axPoint: CGPoint) -> AXWindow? {
+        _ = globalTimeout
         let system = AXUIElementCreateSystemWide()
-        AXUIElementSetMessagingTimeout(system, messagingTimeout)
         var hit: AXUIElement?
         guard AXUIElementCopyElementAtPosition(system, Float(axPoint.x), Float(axPoint.y), &hit) == .success,
               let hit else { return nil }
