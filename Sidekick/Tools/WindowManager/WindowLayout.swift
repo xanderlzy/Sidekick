@@ -65,6 +65,32 @@ enum WindowLayout {
         }
     }
 
+    /// Re-places a window that resisted its target size (min/fixed size) so it
+    /// stays anchored to the edge the target touched, then keeps it inside `visible`.
+    static func adjust(target: CGRect, actual: CGSize, visible: CGRect) -> CGRect {
+        let x = axis(origin: target.minX, length: target.width, actual: actual.width, lo: visible.minX, hi: visible.maxX)
+        let y = axis(origin: target.minY, length: target.height, actual: actual.height, lo: visible.minY, hi: visible.maxY)
+        return CGRect(x: x, y: y, width: actual.width, height: actual.height)
+    }
+
+    private static func axis(origin: CGFloat, length: CGFloat, actual: CGFloat, lo: CGFloat, hi: CGFloat) -> CGFloat {
+        var o = origin
+        if abs(actual - length) > 0.5 {
+            let edge: CGFloat = 1
+            let touchesLo = abs(origin - lo) <= edge
+            let touchesHi = abs(origin + length - hi) <= edge
+            if touchesLo && !touchesHi {
+                o = origin
+            } else if touchesHi && !touchesLo {
+                o = origin + length - actual
+            } else {
+                o = origin + length / 2 - actual / 2
+            }
+        }
+        guard actual <= hi - lo else { return lo }
+        return min(max(o, lo), hi - actual)
+    }
+
     /// `index` and `span` are in units of `of`ths along the split axis
     /// (horizontal on landscape, vertical on portrait).
     private static func slice(_ v: CGRect, portrait: Bool, index: CGFloat, of n: CGFloat, span: CGFloat) -> CGRect {
