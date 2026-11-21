@@ -19,7 +19,7 @@ final class AppEnvironment {
     func requestSetup(toolID: String) { setup.request(toolID: toolID) }
 
     private convenience init() {
-        self.init(tools: [DictationTool(importer: .live())])
+        self.init(tools: [DictationTool(importer: .live()), WindowManagerTool()])
     }
 
     /// Tests build their own environment around sandboxed tools and defaults.

@@ -22,12 +22,10 @@ private struct MenuContent: View {
             ForEach(env.registry.enabled, id: \.id) { tool in
                 if !tool.menuItems.isEmpty {
                     Divider()
-                    ForEach(tool.menuItems) { item in
-                        if let shortcut = item.shortcut {
-                            Button(item.title, action: item.action).globalKeyboardShortcut(shortcut)
-                        } else {
-                            Button(item.title, action: item.action)
-                        }
+                    if let title = tool.menuTitle {
+                        Menu(title) { items(of: tool) }
+                    } else {
+                        items(of: tool)
                     }
                 }
             }
@@ -37,6 +35,16 @@ private struct MenuContent: View {
             Divider()
             Button("Quit Sidekick") { NSApp.terminate(nil) }
                 .keyboardShortcut("q")
+        }
+    }
+
+    @ViewBuilder private func items(of tool: any Tool) -> some View {
+        ForEach(tool.menuItems) { item in
+            if let shortcut = item.shortcut {
+                Button(item.title, action: item.action).globalKeyboardShortcut(shortcut)
+            } else {
+                Button(item.title, action: item.action)
+            }
         }
     }
 }

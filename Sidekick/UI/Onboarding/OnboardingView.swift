@@ -88,7 +88,7 @@ struct OnboardingView: View {
         case .finish: FinishStep(env: env, done: done)
         case .microphone: MicrophoneStep(next: advance(from: s))
         case .globeKey: GlobeKeyStep(next: next)
-        case .accessibility: dictationStep { AccessibilityStep(env: $0, next: advance(from: s)) }
+        case .accessibility: AccessibilityStep(next: advance(from: s))
         case .speechModel: dictationStep { SpeechModelStep(env: $0, next: next) }
         case .appleIntelligence: dictationStep { AppleIntelligenceStep(env: $0, next: next) }
         case .practice: dictationStep { PracticeStep(env: $0, key: $0.hotkeys.key, next: next) }

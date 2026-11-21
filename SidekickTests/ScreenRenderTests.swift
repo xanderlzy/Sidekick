@@ -24,7 +24,8 @@ struct ScreenRenderTests {
         let store = FileManager.default.temporaryDirectory.appending(path: suite, directoryHint: .isDirectory)
         dictation = DictationTool(defaults: defaults, startServices: false, storeDirectory: store)
         dictation.start()
-        env = AppEnvironment(tools: [dictation], defaults: defaults)
+        env = AppEnvironment(tools: [dictation, WindowManagerTool(defaults: defaults)], defaults: defaults)
+        env.registry.setEnabled("windowManager", true)
     }
 
     @Test func renderScreens() async throws {
@@ -40,6 +41,7 @@ struct ScreenRenderTests {
             ("dictation-home", window(env, .page(tool: "dictation", page: "home"))),
             ("dictation-history", window(env, .page(tool: "dictation", page: "history"))),
             ("dictation-settings", window(env, .page(tool: "dictation", page: "settings"))),
+            ("window-manager-settings", window(env, .page(tool: "windowManager", page: "settings"))),
             ("onboarding-choose", AnyView(OnboardingView(env: env, steps: [.chooseTools, .finish], done: {}))),
             ("onboarding-welcome", AnyView(OnboardingView(env: env, steps: [.welcome, .chooseTools, .finish], done: {}))),
         ]

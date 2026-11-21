@@ -65,4 +65,8 @@ final class DictationTool: Tool {
     func stop() {
         env?.stopAll()
     }
+
+    func accessibilityGranted() {
+        env?.startHotkeys()
+    }
 }

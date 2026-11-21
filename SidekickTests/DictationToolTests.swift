@@ -24,6 +24,12 @@ struct DictationToolTests {
         #expect(makeTool().setupSteps == [.microphone, .accessibility, .speechModel, .appleIntelligence, .practice, .tryIt])
     }
 
+    @Test func accessibilityGrantedWithoutEnvDoesNotStart() {
+        let tool = makeTool()
+        tool.accessibilityGranted()
+        #expect(tool.env == nil)
+    }
+
     @Test func envCreatedOnlyOnStart() {
         let tool = makeTool()
         #expect(tool.env == nil)

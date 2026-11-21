@@ -20,6 +20,13 @@ struct OnboardingFlowTests {
                 == [.welcome, .chooseTools, .microphone, .accessibility, .speechModel, .finish])
     }
 
+    @Test func windowManagerAndDictationShareAccessibility() {
+        let wm = FakeTool(id: "wm", setupSteps: [.accessibility])
+        let dict = FakeTool(id: "dictation", setupSteps: [.microphone, .accessibility])
+        let steps = OnboardingFlow.steps(tools: [wm, dict], satisfied: none)
+        #expect(steps.filter { $0 == .accessibility }.count == 1)
+    }
+
     @Test func grantedPermissionsSkipped() {
         #expect(OnboardingFlow.steps(tools: [listener()], satisfied: { $0 == .microphone })
                 == [.welcome, .chooseTools, .finish])

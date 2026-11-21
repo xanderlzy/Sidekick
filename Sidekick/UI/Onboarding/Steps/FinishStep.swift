@@ -7,7 +7,7 @@ struct FinishStep: View {
     @State private var launchAtLogin = true
 
     private var shortcuts: [(id: String, title: String, keys: String)] {
-        env.registry.enabled.flatMap(\.menuItems).compactMap { item in
+        env.registry.enabled.flatMap(\.menuItems).filter(\.inCheatSheet).compactMap { item in
             item.shortcut.map { (item.id, item.title, KeyboardShortcuts.getShortcut(for: $0)?.description ?? "Not set") }
         }
     }
