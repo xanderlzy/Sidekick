@@ -67,6 +67,8 @@ final class DictationTool: Tool {
     }
 
     func accessibilityGranted() {
-        env?.startHotkeys()
+        // A tool that was switched off keeps its env; it must not wake up here.
+        guard let env, env.isRunning else { return }
+        env.startHotkeys()
     }
 }

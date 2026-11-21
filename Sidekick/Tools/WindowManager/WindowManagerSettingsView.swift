@@ -3,7 +3,12 @@ import SwiftUI
 
 struct WindowManagerSettingsView: View {
     let tool: WindowManagerTool
-    @AppStorage(WindowManagerTool.snapEnabledKey) private var snapEnabled = true
+    @State private var snapEnabled: Bool
+
+    init(tool: WindowManagerTool) {
+        self.tool = tool
+        _snapEnabled = State(initialValue: tool.snapEnabled)
+    }
 
     var body: some View {
         ScrollView {
@@ -12,7 +17,7 @@ struct WindowManagerSettingsView: View {
 
                 SettingsSection("Snapping") {
                     SettingsRow(title: "Snap windows by dragging", detail: "Drag a window to an edge or corner of the screen.") {
-                        Toggle("", isOn: $snapEnabled).toggleStyle(MonoToggleStyle()).labelsHidden()
+                        Toggle("", isOn: snapBinding).toggleStyle(MonoToggleStyle()).labelsHidden()
                     }
                 }
 
@@ -35,6 +40,10 @@ struct WindowManagerSettingsView: View {
             .frame(maxWidth: 560, alignment: .leading)
         }
         .scrollIndicators(.never)
-        .onChange(of: snapEnabled) { _, new in tool.setSnapping(new) }
+    }
+
+    /// The tool's own defaults are the single source of truth; the state only drives redraws.
+    private var snapBinding: Binding<Bool> {
+        Binding(get: { snapEnabled }, set: { snapEnabled = $0; tool.setSnapping($0) })
     }
 }

@@ -30,6 +30,15 @@ struct DictationToolTests {
         #expect(tool.env == nil)
     }
 
+    @Test func accessibilityGrantedWhileStoppedDoesNotStartHotkeys() {
+        let tool = makeTool()
+        tool.start()
+        tool.stop()
+        tool.accessibilityGranted()
+        #expect(tool.env?.isRunning == false)
+        #expect(tool.env?.trustPoll == nil)
+    }
+
     @Test func envCreatedOnlyOnStart() {
         let tool = makeTool()
         #expect(tool.env == nil)

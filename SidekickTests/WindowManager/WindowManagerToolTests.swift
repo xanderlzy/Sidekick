@@ -17,6 +17,7 @@ struct WindowManagerToolTests {
         let tool = WindowManagerTool(defaults: defaults)
         #expect(tool.id == "windowManager")
         #expect(tool.name == "Window Manager")
+        #expect(tool.summary == "Snap windows to halves, thirds and corners with shortcuts or by dragging to the screen's edges.")
         #expect(tool.permissions == [.accessibility])
         #expect(tool.setupSteps == [.accessibility])
         #expect(tool.menuTitle == "Window Manager")
@@ -26,9 +27,7 @@ struct WindowManagerToolTests {
     @Test func menuHasAllActionsWithFourInCheatSheet() {
         let items = WindowManagerTool(defaults: defaults).menuItems
         #expect(items.count == 23)
-        #expect(items.filter(\.inCheatSheet).map(\.id) == WindowAction.allCases.filter {
-            [.leftHalf, .rightHalf, .topHalf, .bottomHalf].contains($0)
-        }.map(\.rawValue))
+        #expect(items.filter(\.inCheatSheet).map(\.id) == ["leftHalf", "rightHalf", "topHalf", "bottomHalf"])
     }
 
     @Test func startStopIdempotent() {

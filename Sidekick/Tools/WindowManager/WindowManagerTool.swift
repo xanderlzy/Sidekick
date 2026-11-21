@@ -16,7 +16,7 @@ final class WindowManagerTool: Tool {
     let id = "windowManager"
     let name = "Window Manager"
     let symbol = "rectangle.split.2x2"
-    let summary = "Snap windows to halves, thirds and corners with a shortcut, or by dragging to a screen edge."
+    let summary = "Snap windows to halves, thirds and corners with shortcuts or by dragging to the screen's edges."
     let permissions: [Permission] = [.accessibility]
     let setupSteps: [OnboardingStep] = [.accessibility]
     let menuTitle: String? = "Window Manager"
@@ -33,7 +33,7 @@ final class WindowManagerTool: Tool {
         self.snapping = snapping
     }
 
-    private var snapEnabled: Bool {
+    var snapEnabled: Bool {
         defaults.object(forKey: Self.snapEnabledKey) as? Bool ?? true
     }
 
