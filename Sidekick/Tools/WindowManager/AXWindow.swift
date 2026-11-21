@@ -30,7 +30,13 @@ struct AXElementKey: Hashable {
 final class AXWindow: WindowHandle {
     private let element: AXUIElement
 
-    init(element: AXUIElement) { self.element = element }
+    /// Caps how long one AX call may wait on a busy app, so it can't stall the main thread.
+    static let messagingTimeout: Float = 0.25
+
+    init(element: AXUIElement) {
+        self.element = element
+        AXUIElementSetMessagingTimeout(element, Self.messagingTimeout)
+    }
 
     var id: AnyHashable { AnyHashable(AXElementKey(element)) }
 
@@ -62,6 +68,7 @@ final class AXWindow: WindowHandle {
 
     static func at(_ axPoint: CGPoint) -> AXWindow? {
         let system = AXUIElementCreateSystemWide()
+        AXUIElementSetMessagingTimeout(system, messagingTimeout)
         var hit: AXUIElement?
         guard AXUIElementCopyElementAtPosition(system, Float(axPoint.x), Float(axPoint.y), &hit) == .success,
               let hit else { return nil }

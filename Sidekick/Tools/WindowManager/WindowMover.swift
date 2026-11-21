@@ -27,10 +27,12 @@ final class WindowMover {
         perform(action, on: window)
     }
 
-    func perform(_ action: WindowAction, on window: any WindowHandle) {
+    /// `display` overrides the display the window is judged to be on; drag-to-snap passes
+    /// the display under the cursor so the drop matches the preview.
+    func perform(_ action: WindowAction, on window: any WindowHandle, display override: Display? = nil) {
         guard !window.isFullScreen, !window.isMinimized, let current = window.frame else { return }
         let all = displays()
-        guard let display = ScreenGeometry.display(for: current, in: all) else { return }
+        guard let display = override ?? ScreenGeometry.display(for: current, in: all) else { return }
         let id = window.id
 
         if action == .restore {

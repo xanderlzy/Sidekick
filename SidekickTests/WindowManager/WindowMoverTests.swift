@@ -39,6 +39,15 @@ struct WindowMoverTests {
         WindowMover(displays: { [main] }, focusedWindow: { focused })
     }
 
+    @Test func displayOverrideWins() {
+        let right = Display(frame: CGRect(x: 1600, y: 0, width: 1440, height: 900), visible: CGRect(x: 1600, y: 0, width: 1440, height: 900))
+        let m = WindowMover(displays: { [main, right] }, focusedWindow: { nil })
+        // Mostly on main, a sliver on the right display.
+        let w = FakeWindow(CGRect(x: 1000, y: 100, width: 700, height: 400))
+        m.perform(.leftHalf, on: w, display: right)
+        #expect(approx(w.current, CGRect(x: 1600, y: 0, width: 720, height: 900)))
+    }
+
     @Test func appliesLeftHalf() {
         let w = FakeWindow(CGRect(x: 100, y: 100, width: 500, height: 400))
         mover().perform(.leftHalf, on: w)

@@ -12,9 +12,6 @@ protocol SnapController: AnyObject {
 /// its original size.
 @MainActor
 final class DragSnapMonitor: SnapController {
-    /// How far a snapped window may sit from where Window Manager put it and still count as snapped.
-    static let snappedTolerance: CGFloat = 2
-
     private let mover: WindowMover
     private var monitor: Any?
     private var preview: SnapPreviewPanel?
@@ -27,9 +24,11 @@ final class DragSnapMonitor: SnapController {
     /// How far the cursor had moved when the start frame was read; the window can't have moved further.
     private var startSlack: CGFloat = 0
     private var isWindowDrag = false
-    /// Set once the drag is known not to be a window move (a resize), so we stop asking AX.
+    /// Set once the drag is known not to be a window move (a resize, a text selection), so we stop asking AX.
     private var ignored = false
     private var lastAction: WindowAction?
+    /// The display under the cursor when `lastAction` was chosen; the drop lands there, like the preview.
+    private var lastDisplay: Display?
 
     init(mover: WindowMover) {
         self.mover = mover
@@ -85,7 +84,11 @@ final class DragSnapMonitor: SnapController {
                 ignored = true
                 return
             }
-            guard DragClassifier.isWindowDrag(start: startFrame, now: now) else { return }
+            guard DragClassifier.isWindowDrag(start: startFrame, now: now) else {
+                let travel = max(abs(cursor.x - downPoint.x), abs(cursor.y - downPoint.y))
+                if DragClassifier.isNonWindowDrag(start: startFrame, now: now, cursorTravel: travel) { ignored = true }
+                return
+            }
             if window.isFullScreen { ignored = true; return }
             isWindowDrag = true
             unsnapIfNeeded(window, start: startFrame, now: now, cursor: cursor)
@@ -95,7 +98,7 @@ final class DragSnapMonitor: SnapController {
 
     private func mouseUp() {
         if isWindowDrag, let action = lastAction, let window {
-            mover.perform(action, on: window)
+            mover.perform(action, on: window, display: lastDisplay)
         }
         preview?.hide()
         reset()
@@ -104,12 +107,10 @@ final class DragSnapMonitor: SnapController {
     /// A window still where Window Manager snapped it gets its original size back as it's dragged away.
     private func unsnapIfNeeded(_ window: AXWindow, start: CGRect, now: CGRect, cursor: CGPoint) {
         let id = window.id
-        guard let applied = mover.lastApplied(for: id), let original = mover.restore.original(for: id) else { return }
-        let originTolerance = Self.snappedTolerance + startSlack
-        guard abs(applied.minX - start.minX) <= originTolerance, abs(applied.minY - start.minY) <= originTolerance,
-              abs(applied.width - start.width) <= Self.snappedTolerance,
-              abs(applied.height - start.height) <= Self.snappedTolerance else { return }
-        window.setFrame(DragClassifier.unsnapFrame(current: now, original: original.size, cursor: cursor))
+        guard let applied = mover.lastApplied(for: id), let original = mover.restore.original(for: id),
+              DragClassifier.isStillSnapped(applied: applied, start: start, slack: startSlack) else { return }
+        // Keep the restore memory if the app refused the new size.
+        guard window.setFrame(DragClassifier.unsnapFrame(current: now, original: original.size, cursor: cursor)) else { return }
         _ = mover.restore.take(for: id)
     }
 
@@ -118,11 +119,13 @@ final class DragSnapMonitor: SnapController {
         let displays = ScreenGeometry.currentDisplays()
         guard let display = displays.first(where: { $0.frame.contains(cursor) }) else {
             lastAction = nil
+            lastDisplay = nil
             preview?.hide()
             return
         }
         let action = SnapAreas.action(at: cursor, on: display, displays: displays, previous: lastAction)
         lastAction = action
+        lastDisplay = display
         guard let action,
               let target = WindowLayout.target(for: action, window: frame, display: display, displays: displays, step: 0)
         else {
@@ -142,6 +145,7 @@ final class DragSnapMonitor: SnapController {
         isWindowDrag = false
         ignored = false
         lastAction = nil
+        lastDisplay = nil
     }
 
     /// The cursor in AX coordinates.
