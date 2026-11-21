@@ -5,8 +5,12 @@ import CoreGraphics
 enum DragClassifier {
     static let moveThreshold: CGFloat = 2
     static let sizeTolerance: CGFloat = 1
-    /// Cursor travel after which a still window means the drag isn't moving it.
-    static let travelLimit: CGFloat = 10
+    /// Cursor travel, counted from when the start frame was read, after which a still window may mean
+    /// the drag isn't moving it.
+    static let travelLimit: CGFloat = 40
+    /// How long the window gets to start following. macOS reports a dragged window's position
+    /// 60-90ms late (a fast drag runs 150pt+ ahead of it), so travel alone can't decide.
+    static let followTimeLimit: Double = 0.5
     /// How far a snapped window may sit from where Window Manager put it and still count as snapped.
     static let snappedTolerance: CGFloat = 2
 
@@ -24,11 +28,12 @@ enum DragClassifier {
         return CGRect(x: x, y: current.minY, width: original.width, height: original.height)
     }
 
-    /// True once the cursor has travelled more than 10pt while the window's origin stayed within 2pt:
-    /// a text selection, file drag or similar, so there's no point asking AX any further.
-    static func isNonWindowDrag(start: CGRect, now: CGRect, cursorTravel: CGFloat) -> Bool {
+    /// True once the cursor has travelled more than 40pt and more than half a second has passed
+    /// while the window's origin stayed within 2pt: a text selection, file drag or similar,
+    /// so there's no point asking AX any further.
+    static func isNonWindowDrag(start: CGRect, now: CGRect, cursorTravel: CGFloat, elapsed: Double) -> Bool {
         let still = abs(now.minX - start.minX) <= moveThreshold && abs(now.minY - start.minY) <= moveThreshold
-        return cursorTravel > travelLimit && still
+        return cursorTravel > travelLimit && elapsed > followTimeLimit && still
     }
 
     /// True when a window's frame at drag start is still the one Window Manager applied:

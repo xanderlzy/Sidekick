@@ -18,6 +18,9 @@ final class DragSnapMonitor: SnapController {
 
     // Per-drag state.
     private var downPoint: CGPoint?
+    /// Where the cursor was when the start frame was read; travel is measured from here, not from the click.
+    private var resolvePoint: CGPoint?
+    private var resolveTime: Date?
     private var resolved = false
     private var window: AXWindow?
     private var startFrame: CGRect?
@@ -79,6 +82,8 @@ final class DragSnapMonitor: SnapController {
             window = AXWindow.at(downPoint)
             startFrame = window?.frame
             startSlack = max(abs(cursor.x - downPoint.x), abs(cursor.y - downPoint.y))
+            resolvePoint = cursor
+            resolveTime = Date()
         }
         guard let window, let startFrame else { return }
 
@@ -90,8 +95,10 @@ final class DragSnapMonitor: SnapController {
                 return
             }
             guard DragClassifier.isWindowDrag(start: startFrame, now: now) else {
-                let travel = max(abs(cursor.x - downPoint.x), abs(cursor.y - downPoint.y))
-                if DragClassifier.isNonWindowDrag(start: startFrame, now: now, cursorTravel: travel) { ignored = true }
+                let origin = resolvePoint ?? downPoint
+                let travel = max(abs(cursor.x - origin.x), abs(cursor.y - origin.y))
+                if DragClassifier.isNonWindowDrag(start: startFrame, now: now, cursorTravel: travel,
+                                                  elapsed: Date().timeIntervalSince(resolveTime ?? Date())) { ignored = true }
                 return
             }
             if window.isFullScreen { ignored = true; return }
@@ -143,6 +150,8 @@ final class DragSnapMonitor: SnapController {
 
     private func reset() {
         downPoint = nil
+        resolvePoint = nil
+        resolveTime = nil
         resolved = false
         window = nil
         startFrame = nil

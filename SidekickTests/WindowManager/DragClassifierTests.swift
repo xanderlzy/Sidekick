@@ -25,17 +25,26 @@ struct DragClassifierTests {
         #expect(approx(frame, CGRect(x: 200, y: 25, width: 400, height: 300)))
     }
 
-    @Test func stillWindowAfterCursorTravelIsNonWindowDrag() {
-        #expect(DragClassifier.isNonWindowDrag(start: start, now: start, cursorTravel: 11))
-        #expect(DragClassifier.isNonWindowDrag(start: start, now: CGRect(x: 102, y: 101, width: 500, height: 400), cursorTravel: 30))
+    @Test func stillWindowAfterTravelAndTimeIsNonWindowDrag() {
+        #expect(DragClassifier.isNonWindowDrag(start: start, now: start, cursorTravel: 41, elapsed: 0.51))
+        #expect(DragClassifier.isNonWindowDrag(start: start, now: CGRect(x: 102, y: 101, width: 500, height: 400),
+                                               cursorTravel: 300, elapsed: 1))
     }
 
     @Test func shortTravelIsNotYetNonWindowDrag() {
-        #expect(!DragClassifier.isNonWindowDrag(start: start, now: start, cursorTravel: 10))
+        #expect(!DragClassifier.isNonWindowDrag(start: start, now: start, cursorTravel: 40, elapsed: 2))
+    }
+
+    /// macOS reports a dragged window's position 60-90ms late: a fast drag can be 150pt ahead
+    /// of the reported frame, so travel alone must never end the drag.
+    @Test func laggingWindowIsNotNonWindowDrag() {
+        #expect(!DragClassifier.isNonWindowDrag(start: start, now: start, cursorTravel: 180, elapsed: 0.1))
+        #expect(!DragClassifier.isNonWindowDrag(start: start, now: start, cursorTravel: 180, elapsed: 0.5))
     }
 
     @Test func movedWindowIsNotNonWindowDrag() {
-        #expect(!DragClassifier.isNonWindowDrag(start: start, now: CGRect(x: 150, y: 120, width: 500, height: 400), cursorTravel: 60))
+        #expect(!DragClassifier.isNonWindowDrag(start: start, now: CGRect(x: 150, y: 120, width: 500, height: 400),
+                                                cursorTravel: 60, elapsed: 1))
     }
 
     @Test func stillSnappedMatches() {
