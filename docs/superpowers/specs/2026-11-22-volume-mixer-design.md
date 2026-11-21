@@ -190,6 +190,16 @@ Keep the logic pure where possible (`MixerSettingsStore`, `AppGrouping`, and the
 - **Out of scope for v1:** system sounds, Sidekick itself, per-app output devices, and a keyboard shortcut to open the panel.
 - **Settings page:** it holds only the list of remembered volumes and the resets.
 
+## Settled after the builder check
+- **First touch while playing:** when a playing app is first moved off 100%, a brief dropout (up to about 50ms) is acceptable. Doubled audio (the original and the tapped copy playing together) and a full-volume burst are not. Order it as: create the tap, start the IO proc with the target gain, and let `mutedWhenTapped` silence the original. *(my call)*
+- **Shared WebKit content:** if `com.apple.WebKit.WebContent` processes can't be attributed to one app, their row is stored under the synthetic key `webkit.webcontent` and titled "Web content". *(my call)*
+- **Setup step:** like the other permission steps, it can be continued without granting. If the tool is on without the permission, the status icon still shows and the panel shows only the "needs System Audio Recording" line and the button. *(my call)*
+- **Rebuild failure on device change:** retry once. If it still fails, release the app to normal sound (as a crash would) and show "Couldn't keep [App]'s volume on this device" in the panel. Never leave it silent indefinitely. *(my call)*
+- **Taps:** one tap and aggregate device per app or one shared aggregate is the builder's choice, as long as untouched apps are unaffected. *(left to builder)*
+- **Settings page while off:** it's hidden, like every tool's pages (Sidebar only lists enabled tools). Stored volumes don't apply while off. *(answered by project)*
+- **Tests:** unit tests never touch real Core Audio, taps or permission. They use fakes behind the protocol. Real audio is covered by the manual checklist. *(my call)*
+- **Status item:** Sidekick's own menu is a SwiftUI `MenuBarExtra`, and the mixer adds a separate AppKit `NSStatusItem`. These two coexist. *(answered by project)*
+
 ## Left to the builder
 - How to detect the System Audio Recording permission (it must use a public API and be documented).
 - Exactly how WebKit content processes are attributed to an app.
