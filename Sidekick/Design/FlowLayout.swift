@@ -1,7 +1,7 @@
 import SwiftUI
 
 /// Lays children left to right at their ideal size, wrapping whole children onto new lines.
-struct FlowLayout: Layout {
+struct FlowLayout: SwiftUI.Layout {
     var spacing: CGFloat = 6
     var lineSpacing: CGFloat = 6
 
