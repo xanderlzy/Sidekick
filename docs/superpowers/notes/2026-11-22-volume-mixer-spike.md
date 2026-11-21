@@ -206,5 +206,5 @@ When the status is undetermined, the probe *is* what shows the system prompt, an
 ## Cleanup done
 - Every tap and aggregate the spike created was destroyed. Each was private, and the device list afterwards showed only the 3 real devices.
 - afplay was stopped, the Chrome test tab was closed, and Safari (launched by the spike) was quit. System Settings was closed.
-- Music was left "stopped". It had been paused before. The spike's `play` attempts failed and it was stopped.
+- Music (already running) was left "paused", as it was before. Its current track is now from the "songs" playlist (fix round 1 played it), not the original radio entry.
 - Left on the system: TCC entries for two ad-hoc spike bundles, `local.mixerspike.probe` (allowed) and `local.mixerspike.probe2` (denied). Their binaries were only in the scratchpad, and the entries don't show in the Settings lists. VS Code also gained microphone access during the spike, from a mic prompt the user answered.
