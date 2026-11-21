@@ -2,14 +2,14 @@ import Testing
 import CoreGraphics
 @testable import Sidekick
 
-struct LayoutTests {
+struct WindowLayoutTests {
     let main = Display(frame: CGRect(x: 0, y: 0, width: 1600, height: 1000), visible: CGRect(x: 0, y: 25, width: 1600, height: 900))
     let portrait = Display(frame: CGRect(x: 1600, y: 0, width: 1000, height: 1600), visible: CGRect(x: 1600, y: 0, width: 1000, height: 1600))
     let win = CGRect(x: 100, y: 100, width: 400, height: 300)
 
     private func t(_ a: WindowAction, _ step: Int = 0, window: CGRect? = nil, on d: Display? = nil, displays: [Display]? = nil) -> CGRect? {
         let d = d ?? main
-        return Layout.target(for: a, window: window ?? win, display: d, displays: displays ?? [main, portrait], step: step)
+        return WindowLayout.target(for: a, window: window ?? win, display: d, displays: displays ?? [main, portrait], step: step)
     }
 
     @Test func leftHalf() {
@@ -64,6 +64,14 @@ struct LayoutTests {
         #expect(t(.smaller, window: small) == small)
     }
 
+    @Test func largerOffscreenStaysInVisible() {
+        for w in [CGRect(x: 5000, y: 5000, width: 300, height: 200), CGRect(x: -900, y: -900, width: 300, height: 200)] {
+            let r = t(.larger, window: w)!
+            #expect(!r.isNull && r.width > 0 && r.height > 0)
+            #expect(main.visible.contains(r))
+        }
+    }
+
     @Test func centerKeepsSize() {
         #expect(t(.center, window: CGRect(x: 0, y: 25, width: 400, height: 300)) == CGRect(x: 600, y: 325, width: 400, height: 300))
     }
@@ -73,7 +81,8 @@ struct LayoutTests {
         #expect(approx(t(.nextDisplay, window: left)!, CGRect(x: 1600, y: 0, width: 500, height: 1600)))
         let fromPortrait = t(.nextDisplay, window: CGRect(x: 1700, y: 100, width: 300, height: 300), on: portrait)!
         #expect(main.visible.contains(fromPortrait))
-        #expect(t(.previousDisplay, window: left) != nil)
+        let portraitLeft = CGRect(x: 1600, y: 0, width: 500, height: 1600)
+        #expect(approx(t(.previousDisplay, window: portraitLeft, on: portrait)!, CGRect(x: 0, y: 25, width: 800, height: 900)))
         #expect(t(.nextDisplay, window: left, displays: [main]) == nil)
     }
 

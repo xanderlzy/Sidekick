@@ -1,6 +1,6 @@
 import CoreGraphics
 
-enum Layout {
+enum WindowLayout {
     static let sizeStep: CGFloat = 30
     static let minSize = CGSize(width: 200, height: 150)
     static let almostMaximizeFraction: CGFloat = 0.9
@@ -46,7 +46,10 @@ enum Layout {
         case .maximizeHeight:
             return CGRect(x: window.minX, y: v.minY, width: window.width, height: v.height)
         case .larger:
-            return window.insetBy(dx: -sizeStep, dy: -sizeStep).intersection(v)
+            let g = window.insetBy(dx: -sizeStep, dy: -sizeStep)
+            let w = min(g.width, v.width), h = min(g.height, v.height)
+            return CGRect(x: min(max(g.minX, v.minX), v.maxX - w),
+                          y: min(max(g.minY, v.minY), v.maxY - h), width: w, height: h)
         case .smaller:
             let w = min(window.width, max(minSize.width, window.width - 2 * sizeStep))
             let h = min(window.height, max(minSize.height, window.height - 2 * sizeStep))
