@@ -31,12 +31,14 @@ struct DictationToolTests {
     }
 
     @Test func accessibilityGrantedWhileStoppedDoesNotStartHotkeys() {
-        let tool = makeTool()
+        var calls = 0
+        let tool = DictationTool(defaults: defaults, startServices: false, storeDirectory: storeDirectory,
+                                 startHotkeys: { _ in calls += 1 })
         tool.start()
         tool.stop()
+        #expect(tool.env != nil)
         tool.accessibilityGranted()
-        #expect(tool.env?.isRunning == false)
-        #expect(tool.env?.trustPoll == nil)
+        #expect(calls == 0)
     }
 
     @Test func envCreatedOnlyOnStart() {

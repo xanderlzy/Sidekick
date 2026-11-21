@@ -18,9 +18,13 @@ final class DictationTool: Tool {
     private let storeDirectory: URL
     /// Nil in tests so they never read the real Parrot data; the app passes `.live()`.
     private let importer: ParrotImporter?
+    /// Seam so tests can observe whether an Accessibility grant starts the hotkeys.
+    private let startHotkeys: @MainActor (DictationEnvironment) -> Void
 
     init(defaults: UserDefaults = .standard, startServices: Bool = NSClassFromString("XCTestCase") == nil,
-         storeDirectory: URL = DictationEnvironment.defaultStoreDirectory, importer: ParrotImporter? = nil) {
+         storeDirectory: URL = DictationEnvironment.defaultStoreDirectory, importer: ParrotImporter? = nil,
+         startHotkeys: @escaping @MainActor (DictationEnvironment) -> Void = { $0.startHotkeys() }) {
+        self.startHotkeys = startHotkeys
         self.importer = importer
         self.defaults = defaults
         self.startServices = startServices
@@ -69,6 +73,6 @@ final class DictationTool: Tool {
     func accessibilityGranted() {
         // A tool that was switched off keeps its env; it must not wake up here.
         guard let env, env.isRunning else { return }
-        env.startHotkeys()
+        startHotkeys(env)
     }
 }

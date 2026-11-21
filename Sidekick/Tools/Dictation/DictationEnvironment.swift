@@ -24,7 +24,7 @@ final class DictationEnvironment {
     var hotkeyInterceptor: ((HotkeyAction) -> Void)?
     var keyStateObserver: ((Bool) -> Void)?
     var polishAvailable: Bool { polishClient.isAvailable }
-    private(set) var trustPoll: Timer?
+    private var trustPoll: Timer?
     private let defaults: UserDefaults
     private var settingsObserver: NSObjectProtocol?
     /// True between `startAll()` and `stopAll()`.
