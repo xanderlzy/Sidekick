@@ -43,7 +43,8 @@ final class MixerSettingsStore {
 
     func set(_ value: AppVolume, for key: String) {
         var clamped = value
-        clamped.volume = min(max(value.volume, 0), 1)
+        // A non-finite volume (a bad slider value) means full: never silent, never stored.
+        clamped.volume = value.volume.isFinite ? min(max(value.volume, 0), 1) : 1
         if clamped.isStandard {
             entries.removeValue(forKey: key)
         } else {

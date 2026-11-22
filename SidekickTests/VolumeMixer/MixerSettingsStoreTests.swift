@@ -27,6 +27,17 @@ struct MixerSettingsStoreTests {
         #expect(store.all["x"] == nil)
     }
 
+    /// NaN would otherwise survive min/max (or become a full-volume gain) and be persisted.
+    @Test(arguments: [Double.nan, .infinity, -.infinity])
+    func nonFiniteVolumeIsTreatedAsFull(_ volume: Double) {
+        let store = MixerSettingsStore(defaults: makeDefaults())
+        store.set(AppVolume(volume: 0.4, muted: false), for: "x")
+        store.set(AppVolume(volume: volume, muted: false), for: "x")
+        #expect(store.all["x"] == nil) // back to standard: untapped, normal sound
+        store.set(AppVolume(volume: volume, muted: true), for: "y")
+        #expect(store.setting(for: "y") == AppVolume(volume: 1, muted: true))
+    }
+
     @Test func resetAndResetAll() {
         let store = MixerSettingsStore(defaults: makeDefaults())
         store.set(AppVolume(volume: 0.4, muted: false), for: "x")
