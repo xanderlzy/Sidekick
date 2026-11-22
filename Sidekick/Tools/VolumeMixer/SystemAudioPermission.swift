@@ -27,6 +27,8 @@ enum SystemAudioPermission {
 
     /// The last definite result (or `.notPrompted` / `.unknown`). Never touches Core Audio.
     static var cached: SystemAudioState { shared.cached }
+    /// Grant was pressed at least once, so checks may probe (they never prompt).
+    static var hasPrompted: Bool { shared.hasPrompted }
     /// A probe returned GRANTED (or a tap heard real audio) within the last 30 s.
     static var isGrantedRecently: Bool { shared.isGrantedRecently }
     /// The Grant button: sets `volumeMixer.permissionPrompted`, then probes. May show the system prompt.

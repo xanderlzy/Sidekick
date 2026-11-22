@@ -22,6 +22,13 @@ struct OnboardingFlowTests {
         #expect(OnboardingFlow.steps(tools: [mixer], satisfied: none) == [.welcome, .chooseTools, .systemAudio, .finish])
     }
 
+    /// Only System Audio Recording is re-checked before a sheet; Dictation's steps decide at once.
+    @Test func onlySystemAudioIsRechecked() {
+        for step in [OnboardingStep.microphone, .accessibility, .speechModel, .appleIntelligence, .globeKey] {
+            #expect(OnboardingFlow.recheck(step) == nil)
+        }
+    }
+
     @Test func singleToolSteps() {
         #expect(OnboardingFlow.steps(tools: [listener()], satisfied: none)
                 == [.welcome, .chooseTools, .microphone, .finish])

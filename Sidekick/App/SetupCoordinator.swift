@@ -11,13 +11,19 @@ final class SetupCoordinator {
     @ObservationIgnored var showWindow: () -> Void = {}
     @ObservationIgnored private let registry: ToolRegistry
     @ObservationIgnored private let satisfied: @MainActor (OnboardingStep) -> Bool
+    @ObservationIgnored private let recheck: @MainActor (OnboardingStep) -> (@MainActor () async -> Void)?
+    /// The request whose recheck is running; a later request or a cancel supersedes it.
+    @ObservationIgnored private var rechecking: Int?
+    @ObservationIgnored private var requests = 0
 
     @ObservationIgnored private let defaults: UserDefaults
 
     init(registry: ToolRegistry, satisfied: @escaping @MainActor (OnboardingStep) -> Bool = OnboardingFlow.isSatisfied,
+         recheck: @escaping @MainActor (OnboardingStep) -> (@MainActor () async -> Void)? = OnboardingFlow.recheck,
          defaults: UserDefaults = .standard) {
         self.registry = registry
         self.satisfied = satisfied
+        self.recheck = recheck
         self.defaults = defaults
     }
 
@@ -31,8 +37,27 @@ final class SetupCoordinator {
     }
 
     /// Turns a tool on, first showing its setup sheet if it needs steps the Mac hasn't satisfied yet.
+    /// A missing step whose answer can be confirmed by a quick check (System Audio Recording, whose
+    /// verdict lives in memory only) is checked first, so a relaunch doesn't re-show the sheet to a
+    /// user who has granted it. Other steps decide at once, as before.
     func request(toolID: String) {
         guard let tool = registry.tools.first(where: { $0.id == toolID }) else { return }
+        requests += 1
+        rechecking = nil
+        let checks = setupSteps(for: tool).compactMap(recheck)
+        guard !checks.isEmpty else { decide(tool); return }
+        let token = requests
+        rechecking = token
+        Task { @MainActor in
+            for check in checks { await check() }
+            guard self.rechecking == token else { return }
+            self.rechecking = nil
+            self.decide(tool)
+        }
+    }
+
+    private func decide(_ tool: any Tool) {
+        let toolID = tool.id
         if setupSteps(for: tool).isEmpty {
             registry.setEnabled(toolID, true)
         } else {
@@ -44,6 +69,7 @@ final class SetupCoordinator {
 
     /// Ends the sheet without turning its tool on (Cancel, window closed, or replaced by another).
     func cancel() {
+        rechecking = nil
         guard let id = pending else { return }
         pending = nil
         if !registry.isEnabled(id), let tool = registry.tools.first(where: { $0.id == id }) { tool.stop() }

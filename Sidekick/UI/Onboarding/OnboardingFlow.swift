@@ -43,6 +43,13 @@ struct OnboardingFlow {
         }
     }
 
+    /// A quick background confirmation for a permission whose cached answer may just be unknown
+    /// this launch. Never prompts: System Audio Recording is only checked once Grant was pressed.
+    @MainActor static func recheck(_ step: OnboardingStep) -> (@MainActor () async -> Void)? {
+        guard step == .systemAudio, SystemAudioPermission.hasPrompted else { return nil }
+        return { _ = await SystemAudioPermission.check() }
+    }
+
     var current: OnboardingStep { steps[index] }
     var count: Int { steps.count }
     var canGoBack: Bool { index > 0 }

@@ -53,6 +53,13 @@ struct GeneralSettingsView: View {
         .onReceive(permissionPoll) { _ in
             for p in permissions { granted[p] = p.isGranted }
         }
+        .task {
+            // System Audio Recording's verdict is in memory only: confirm it in the background after
+            // a relaunch (no prompt; nothing probes before Grant was pressed once).
+            guard permissions.contains(.systemAudio), SystemAudioPermission.hasPrompted else { return }
+            _ = await SystemAudioPermission.check()
+            granted[.systemAudio] = Permission.systemAudio.isGranted
+        }
     }
 
     private func grant(_ p: Permission) {
