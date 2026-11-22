@@ -21,11 +21,17 @@ struct TapControllerTests {
                      outputDevices: [81])
     }
 
+    @MainActor final class Clock {
+        var date = Date(timeIntervalSince1970: 1_000_000)
+        func advance(_ seconds: TimeInterval) { date += seconds }
+    }
+
     private struct Rig {
         let controller: TapController
         let system: FakeAudioSystem
         let store: MixerSettingsStore
         let defaults: UserDefaults
+        let clock: Clock
     }
 
     /// Music is playing on the speakers (81). Polling is effectively manual (`pollWatchdog()`).
@@ -37,14 +43,16 @@ struct TapControllerTests {
         system.processList = [musicProcess()]
         system.apps = [RunningApp(pid: 2108, bundleID: music, name: "Music"),
                        RunningApp(pid: 3000, bundleID: chrome, name: "Chrome")]
+        let clock = Clock()
         let controller = TapController(system: system, store: store,
                                        permission: { [system] in await system.checkPermission() },
-                                       pollInterval: .seconds(3600))
+                                       pollInterval: .seconds(3600),
+                                       now: { MainActor.assumeIsolated { clock.date } })
         if start {
             controller.start()
             await controller.settle()
         }
-        return Rig(controller: controller, system: system, store: store, defaults: defaults)
+        return Rig(controller: controller, system: system, store: store, defaults: defaults, clock: clock)
     }
 
     private func lowered(_ rig: Rig, to volume: Double = 0.5) async -> FakeTap {
@@ -371,6 +379,7 @@ struct TapControllerTests {
         #expect(rig.system.makeCalls.count == 2) // once only
         #expect(!rig.controller.isPolling)
         // The next real event tries again.
+        rig.system.processList = [musicProcess(playing: false, devices: [])]
         rig.system.fireProcessesChanged()
         await rig.controller.settle()
         #expect(rig.controller.activeTapKeys == [music])
@@ -531,5 +540,181 @@ struct TapControllerTests {
         rig.controller.setVolume(1, for: music)
         await rig.controller.settle()
         #expect(!rig.controller.isPolling)
+    }
+
+    // MARK: Fix round 1
+
+    @Test func ownAggregateInDevicesDoesNotRelease() async {
+        let rig = await makeRig()
+        let tap = await lowered(rig)
+        rig.system.processList = [musicProcess(devices: [speakers, tap.aggregateID])]
+        rig.system.fireProcessesChanged()
+        await rig.controller.settle()
+        rig.system.processList = [musicProcess(devices: [tap.aggregateID])]
+        rig.system.fireProcessesChanged()
+        await rig.controller.settle()
+        #expect(!tap.invalidated)
+        #expect(rig.system.makeCalls.count == 1)
+        #expect(rig.controller.rows.first?.playsElsewhere == false)
+    }
+
+    @Test func flapBreakerStopsRepeatedQuickElsewhereReleases() async {
+        let rig = await makeRig()
+        let first = await lowered(rig)
+        rig.system.processList = [musicProcess(devices: [57])]
+        rig.system.fireProcessesChanged()
+        await rig.controller.settle()
+        #expect(first.invalidated)
+        #expect(rig.controller.notice == nil) // one flap is just "plays elsewhere"
+        rig.system.processList = [musicProcess(devices: [speakers])]
+        rig.system.fireProcessesChanged()
+        await rig.controller.settle()
+        #expect(rig.system.makeCalls.count == 2)
+        rig.system.processList = [musicProcess(devices: [57])]
+        rig.system.fireProcessesChanged()
+        await rig.controller.settle()
+        rig.system.processList = [musicProcess(devices: [speakers])]
+        rig.system.fireProcessesChanged()
+        await rig.controller.settle()
+        #expect(rig.system.makeCalls.count == 2) // breaker holds
+        #expect(rig.system.liveTaps.isEmpty)
+        #expect(rig.controller.notice == "Couldn't keep Music's volume on this device")
+        // Back to 100% forgets it.
+        rig.controller.setVolume(1, for: music)
+        await rig.controller.settle()
+        #expect(rig.controller.notice == nil)
+        rig.controller.setVolume(0.5, for: music)
+        await rig.controller.settle()
+        #expect(rig.system.liveTaps.count == 1)
+    }
+
+    @Test func slowElsewhereMovesAreNotFlaps() async {
+        let rig = await makeRig()
+        _ = await lowered(rig)
+        for _ in 0..<3 {
+            rig.clock.advance(TapController.flapWindow + 1)
+            rig.system.processList = [musicProcess(devices: [57])]
+            rig.system.fireProcessesChanged()
+            await rig.controller.settle()
+            rig.system.processList = [musicProcess(devices: [speakers])]
+            rig.system.fireProcessesChanged()
+            await rig.controller.settle()
+        }
+        #expect(rig.system.makeCalls.count == 4)
+        #expect(rig.system.liveTaps.count == 1)
+        #expect(rig.controller.notice == nil)
+    }
+
+    @Test func laggingReportAfterRebuildKeepsTap() async {
+        let rig = await makeRig()
+        _ = await lowered(rig)
+        rig.system.defaultDevice = headphones
+        rig.system.fireDefaultDeviceChanged()
+        await rig.controller.settle()
+        let rebuilt = rig.system.liveTaps[0]
+        #expect(rebuilt.device == headphones)
+        // Still reporting the old device after the rebuild: not "elsewhere", not released.
+        rig.system.processList = [musicProcess(playing: false, devices: [speakers])]
+        rig.system.fireProcessesChanged()
+        await rig.controller.settle()
+        #expect(!rebuilt.invalidated)
+        #expect(rig.controller.rows.first?.playsElsewhere == false)
+        // Once it reports the new device, a later move back to the old one is real.
+        rig.system.processList = [musicProcess(devices: [headphones])]
+        rig.system.fireProcessesChanged()
+        await rig.controller.settle()
+        rig.system.processList = [musicProcess(devices: [speakers])]
+        rig.system.fireProcessesChanged()
+        await rig.controller.settle()
+        #expect(rebuilt.invalidated)
+        #expect(rig.controller.rows.first?.playsElsewhere == true)
+    }
+
+    @Test func laggingReportExpires() async {
+        let rig = await makeRig()
+        _ = await lowered(rig)
+        rig.system.defaultDevice = headphones
+        rig.system.fireDefaultDeviceChanged()
+        await rig.controller.settle()
+        let rebuilt = rig.system.liveTaps[0]
+        rig.clock.advance(TapController.lagWindow + 1)
+        rig.controller.pollWatchdog()
+        await rig.controller.settle()
+        #expect(rebuilt.invalidated) // really stayed on the speakers
+        #expect(rig.controller.rows.first?.playsElsewhere == true)
+    }
+
+    @Test func appSeenElsewhereIsNotTappedWhileStopped() async {
+        let rig = await makeRig(stored: [music: AppVolume(volume: 0.5, muted: false)], start: false)
+        rig.system.processList = [musicProcess(devices: [57])]
+        rig.controller.start()
+        await rig.controller.settle()
+        #expect(rig.system.makeCalls.isEmpty)
+        // It stops (Devices empty): still not tapped, so its next start isn't pulled to the default.
+        rig.system.processList = [musicProcess(playing: false, devices: [])]
+        rig.system.fireProcessesChanged()
+        await rig.controller.settle()
+        #expect(rig.system.makeCalls.isEmpty)
+        #expect(rig.controller.rows.first?.playsElsewhere == true)
+        // Seen on the default output: tapped from then on.
+        rig.system.processList = [musicProcess(devices: [speakers])]
+        rig.system.fireProcessesChanged()
+        await rig.controller.settle()
+        #expect(rig.controller.activeTapKeys == [music])
+        rig.system.processList = [musicProcess(playing: false, devices: [])]
+        rig.system.fireProcessesChanged()
+        await rig.controller.settle()
+        #expect(rig.controller.activeTapKeys == [music])
+    }
+
+    @Test func duplicateNotificationsAreNoOps() async {
+        let rig = await makeRig()
+        let tap = await lowered(rig)
+        let gains = tap.setGainCount
+        rig.system.fireProcessesChanged()
+        rig.system.fireProcessesChanged()
+        await rig.controller.settle()
+        rig.system.fireProcessesChanged()
+        await rig.controller.settle()
+        #expect(tap.setGainCount == gains)
+        rig.controller.refresh() // explicit refresh always reconciles
+        await rig.controller.settle()
+        #expect(tap.setGainCount == gains + 1)
+    }
+
+    @Test func faultForgottenAfterHealthyPeriod() async {
+        let rig = await makeRig()
+        let first = await lowered(rig)
+        first.hasFault = true
+        rig.controller.pollWatchdog()
+        await rig.controller.settle()
+        let second = rig.system.liveTaps[0]
+        rig.clock.advance(TapController.healthyAfter + 1)
+        rig.controller.pollWatchdog()
+        await rig.controller.settle()
+        second.hasFault = true
+        rig.controller.pollWatchdog()
+        await rig.controller.settle()
+        #expect(second.invalidated)
+        #expect(rig.system.liveTaps.count == 1) // rebuilt again, not released
+        #expect(rig.controller.notice == nil)
+    }
+
+    @Test func reconcileNotStarvedByWatchdog() async {
+        let rig = await makeRig()
+        _ = await lowered(rig)
+        rig.system.liveTaps[0].looksRevoked = true
+        rig.system.permissionState = .unknown
+        rig.system.holdPermission = true
+        rig.controller.pollWatchdog()
+        await rig.system.waitForHeldPermission() // a slow probe
+        rig.system.defaultDevice = headphones
+        rig.system.fireDefaultDeviceChanged()
+        rig.controller.pollWatchdog() // the next poll lands meanwhile
+        rig.system.releaseHeldPermission()
+        await rig.controller.settle()
+        #expect(rig.system.liveTaps.map(\.device) == [headphones])
+        // The pending rebuild ran before the second watchdog round.
+        #expect(rig.system.events == ["make 81", "permission", "make 90", "invalidate 1"])
     }
 }

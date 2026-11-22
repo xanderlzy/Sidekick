@@ -124,6 +124,8 @@ final class AppTap: TapHandle {
 
     var hasFault: Bool { !invalidated && session.io.fault.load(ordering: .relaxed) }
 
+    var aggregateID: AudioObjectID { session.aggregateID }
+
     // MARK: Permission evidence
 
     /// When this tap last delivered non-zero input: proof of the permission (spike §3 fast path).
@@ -227,6 +229,8 @@ enum HostClock {
 final class TapSession: Sendable {
     let io: TapIOState
     let sampleRate: Double
+    /// The private aggregate device. Fixed for the session's lifetime.
+    let aggregateID: AudioObjectID
 
     private struct Objects {
         var tap = AudioObjectID(kAudioObjectUnknown)
@@ -239,6 +243,7 @@ final class TapSession: Sendable {
     private let objects: Mutex<Objects>
 
     private init(objects: sending Objects, sampleRate: Double, io: TapIOState) {
+        self.aggregateID = objects.aggregate
         self.objects = Mutex(objects)
         self.sampleRate = sampleRate
         self.io = io

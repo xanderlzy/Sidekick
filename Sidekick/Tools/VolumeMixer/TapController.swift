@@ -29,21 +29,48 @@ final class TapController {
     @ObservationIgnored private let permission: PermissionCheck
     @ObservationIgnored private let ownBundleID: String
     @ObservationIgnored private let pollInterval: Duration
+    @ObservationIgnored private let now: () -> Date
     @ObservationIgnored private let log = Logger(subsystem: "com.sidekick.app", category: "VolumeMixer")
 
     /// Polls between the backup permission checks (Task 4 contract: every 30 s while taps exist).
     static let periodicCheckPolls = 30
+    /// A tap released for "plays to another device" this soon after creation counts as a flap.
+    static let flapWindow: TimeInterval = 10
+    /// The second flap within the window stops the key being tapped on that device.
+    static let flapLimit = 2
+    /// How long a rebuilt process may keep reporting the previous device before it counts as
+    /// really playing there.
+    static let lagWindow: TimeInterval = 5
+    /// A tap that stays healthy this long forgets an earlier fault.
+    static let healthyAfter: TimeInterval = 30
 
     private struct ActiveTap {
         let handle: any TapHandle
         var processes: [AudioObjectID]
         let device: AudioDeviceID
+        let createdAt: Date
     }
 
-    /// A create/rebuild that failed twice; not retried until the device or the processes change.
+    /// A create/rebuild that failed twice (or flapped); not retried until the device or the
+    /// processes change, or the key stops wanting a tap.
     private struct FailedAttempt: Equatable {
         let device: AudioDeviceID
         let processes: Set<AudioObjectID>
+    }
+
+    /// Processes of a rebuilt key that may still report the device the old tap was on.
+    private struct Lag {
+        let device: AudioDeviceID
+        var processes: Set<AudioObjectID>
+        let since: Date
+    }
+
+    /// What a reconcile decides from. An identical input after a completed reconcile is a no-op.
+    private struct ReconcileInput: Equatable {
+        let groups: [String: [AudioProcess]]
+        let defaultOutput: AudioDeviceID?
+        let settings: [String: AppVolume]
+        let elsewhere: Set<String>
     }
 
     private enum UnknownRetry { case none, scheduled, spent }
@@ -54,6 +81,10 @@ final class TapController {
     @ObservationIgnored private var apps: [RunningApp] = []
     @ObservationIgnored private var groups: [String: [AudioProcess]] = [:]
     @ObservationIgnored private var defaultOutput: AudioDeviceID?
+    /// Keys seen playing to another device this session (spike §4). Not tapped until one of their
+    /// processes reports exactly the default output, so a stopped app (empty `Devices`) isn't
+    /// pre-tapped and pulled to the default on its next start. Kept across stop/start.
+    @ObservationIgnored private var elsewhere: Set<String> = []
 
     // Taps and their bookkeeping. Only the worker (and `stop()`) changes `taps`.
     @ObservationIgnored private var taps: [String: ActiveTap] = [:]
@@ -62,11 +93,15 @@ final class TapController {
     @ObservationIgnored private var acknowledged: Set<String> = []
     /// Keys whose tap faulted on this device already; a second fault releases instead of rebuilding.
     @ObservationIgnored private var faultedOn: [String: AudioDeviceID] = [:]
+    @ObservationIgnored private var flaps: [String: Int] = [:]
+    @ObservationIgnored private var lagging: [String: Lag] = [:]
     @ObservationIgnored private var unknownRetry = UnknownRetry.none
     @ObservationIgnored private var polls = 0
 
     // The serialized worker.
     @ObservationIgnored private var reconcileRequested = false
+    @ObservationIgnored private var forceReconcile = false
+    @ObservationIgnored private var lastInput: ReconcileInput?
     @ObservationIgnored private var watchdogRequested = false
     @ObservationIgnored private var probeRequested = false
     @ObservationIgnored private var recheckPermission = false
@@ -78,12 +113,14 @@ final class TapController {
          store: MixerSettingsStore,
          permission: @escaping PermissionCheck = { await SystemAudioPermission.check(maxAge: 0) },
          ownBundleID: String = Bundle.main.bundleIdentifier ?? "com.sidekick.app",
-         pollInterval: Duration = .seconds(1)) {
+         pollInterval: Duration = .seconds(1),
+         now: @escaping () -> Date = Date.init) {
         self.system = system
         self.store = store
         self.permission = permission
         self.ownBundleID = ownBundleID
         self.pollInterval = pollInterval
+        self.now = now
     }
 
     // MARK: - Lifecycle
@@ -116,8 +153,12 @@ final class TapController {
         rebuildKeys.removeAll()
         acknowledged.removeAll()
         faultedOn.removeAll()
+        flaps.removeAll()
+        lagging.removeAll()
         unknownRetry = .none
         reconcileRequested = false
+        forceReconcile = false
+        lastInput = nil
         watchdogRequested = false
         probeRequested = false
         recheckPermission = false
@@ -133,6 +174,7 @@ final class TapController {
     func refresh() {
         guard running else { return }
         if needsPermission { recheckPermission = true }
+        forceReconcile = true
         worldChanged()
     }
 
@@ -202,6 +244,8 @@ final class TapController {
         let system = self.system
         groups = AppGrouping.group(processes: system.processes(), apps: apps, ownBundleID: ownBundleID,
                                    parentOf: { system.parent(of: $0) })
+        pruneLagging()
+        updateElsewhere()
         updateRows()
     }
 
@@ -228,12 +272,17 @@ final class TapController {
     }
 
     private func drain(_ gen: Int) async {
+        var lastWasWatchdog = false
         while generation == gen {
-            if watchdogRequested {
+            // Alternate when both are pending, so a slow probe plus the 1 Hz poller can't starve
+            // a reconcile (e.g. a device-change rebuild).
+            if watchdogRequested, !(lastWasWatchdog && reconcileRequested) {
                 watchdogRequested = false
+                lastWasWatchdog = true
                 await watchdog(gen)
             } else if reconcileRequested {
                 reconcileRequested = false
+                lastWasWatchdog = false
                 await reconcile(gen)
             } else {
                 break
@@ -249,6 +298,13 @@ final class TapController {
     }
 
     private func reconcile(_ gen: Int) async {
+        let input = ReconcileInput(groups: groups, defaultOutput: defaultOutput, settings: store.all,
+                                   elsewhere: elsewhere)
+        // Core Audio fires duplicate notifications; an unchanged world needs no second pass.
+        guard forceReconcile || recheckPermission || !rebuildKeys.isEmpty || input != lastInput else { return }
+        forceReconcile = false
+        lastInput = input
+
         if needsPermission {
             // Only an explicit refresh re-asks; listener events would just hammer the probe.
             guard recheckPermission else { return }
@@ -261,11 +317,15 @@ final class TapController {
         recheckPermission = false
 
         let wanted = targets()
-        for key in taps.keys where wanted[key] == nil { release(key) }
-        for key in Set(failed.keys).union(notices.keys).union(faultedOn.keys) where wanted[key] == nil {
+        for key in taps.keys where wanted[key] == nil { release(key, reason: .unwanted) }
+        // Forget failures once the key stops wanting a tap in the user's sense (back to 100%, or
+        // the app is gone) — not merely while it plays elsewhere, or the flap breaker would reset.
+        for key in Set(failed.keys).union(notices.keys).union(faultedOn.keys).union(flaps.keys)
+        where store.setting(for: key).isStandard || groups[key] == nil {
             failed[key] = nil
             notices[key] = nil
             faultedOn[key] = nil
+            flaps[key] = nil
         }
         for key in wanted.keys.sorted() {
             // Each step can await; re-read what's wanted so a change made meanwhile wins.
@@ -305,8 +365,8 @@ final class TapController {
     /// invalidated: the old tap keeps the original muted (its copy plays at the same gain on the old
     /// device), and the new one starts unmuted at gain 0, mutes, then ramps up. Invalidating first
     /// would play the app at full volume on the new device for the whole setup (≥ 50 ms, up to
-    /// seconds) — a burst. Doubling can't happen: the new copy is at 0 until the original is muted,
-    /// and the two copies go to different devices.
+    /// seconds) — a burst. The two copies overlap only briefly (until the old tap is invalidated
+    /// right after the new one is live), and on a device change they go to different devices.
     private func build(_ key: String, processes ids: [AudioObjectID], device: AudioDeviceID,
                        replacing old: ActiveTap?, gen: Int) async {
         rebuildKeys.remove(key)
@@ -322,7 +382,10 @@ final class TapController {
                 }
                 handle.setGain(store.setting(for: key).gain)
                 old?.handle.invalidate()
-                taps[key] = ActiveTap(handle: handle, processes: ids, device: device)
+                taps[key] = ActiveTap(handle: handle, processes: ids, device: device, createdAt: now())
+                if let old, old.device != device {
+                    lagging[key] = Lag(device: old.device, processes: Set(ids), since: now())
+                }
                 acknowledged.remove(key)
                 failed[key] = nil
                 notices[key] = nil
@@ -350,36 +413,40 @@ final class TapController {
         }
         // Both attempts failed: release to normal sound, say so, and don't retry on this device.
         if let old, let current = taps[key], current.handle === old.handle {
-            old.handle.invalidate()
-            taps[key] = nil
-            acknowledged.remove(key)
+            release(key, reason: .failed)
         }
-        failed[key] = FailedAttempt(device: device, processes: Set(ids))
-        notices[key] = "Couldn't keep \(name(for: key))'s volume on this device"
-        updatePolling()
+        markFailed(key, device: device, processes: ids)
     }
 
     private func watchdog(_ gen: Int) async {
         if unknownRetry == .scheduled {
             unknownRetry = .spent
-            reconcileRequested = true
+            requestForcedReconcile()
         }
         guard !taps.isEmpty else { probeRequested = false; return }
         polls += 1
+        let date = now()
         for (key, tap) in taps {
             if tap.handle.level > 0 { acknowledged.remove(key) }
-            guard tap.handle.hasFault else { continue }
+            guard tap.handle.hasFault else {
+                if date.timeIntervalSince(tap.createdAt) >= Self.healthyAfter { faultedOn[key] = nil }
+                continue
+            }
             if faultedOn[key] == tap.device {
-                // Faulted again right after a rebuild: a faulted tap is silent, so release it.
-                release(key)
-                failed[key] = FailedAttempt(device: tap.device, processes: Set(tap.processes))
-                notices[key] = "Couldn't keep \(name(for: key))'s volume on this device"
+                // Faulted again soon after a rebuild: a faulted tap is silent, so release it.
+                release(key, reason: .failed)
+                markFailed(key, device: tap.device, processes: tap.processes)
             } else {
                 faultedOn[key] = tap.device
                 rebuildKeys.insert(key)
             }
         }
-        if !rebuildKeys.isEmpty { reconcileRequested = true }
+        if !rebuildKeys.isEmpty { requestForcedReconcile() }
+        if lagging.contains(where: { date.timeIntervalSince($0.value.since) >= Self.lagWindow }) {
+            pruneLagging()
+            updateElsewhere()
+            requestForcedReconcile()
+        }
 
         let revoked = taps.filter { $0.value.handle.looksRevoked }.map { ($0.key, $0.value.handle) }
         let periodic = polls % Self.periodicCheckPolls == 0
@@ -404,6 +471,11 @@ final class TapController {
 
     // MARK: - Helpers
 
+    private func requestForcedReconcile() {
+        reconcileRequested = true
+        forceReconcile = true
+    }
+
     /// Permission is definitely missing: release everything, keep settings.
     private func revoke() {
         log.error("System Audio Recording not granted; releasing every tap")
@@ -411,42 +483,109 @@ final class TapController {
         taps.removeAll()
         rebuildKeys.removeAll()
         acknowledged.removeAll()
+        lagging.removeAll()
         notices.removeAll()
         unknownRetry = .none
         needsPermission = true
         updatePolling()
     }
 
-    private func release(_ key: String) {
-        taps[key]?.handle.invalidate()
+    private enum ReleaseReason { case unwanted, failed }
+
+    private func release(_ key: String, reason: ReleaseReason) {
+        guard let tap = taps[key] else { return }
+        tap.handle.invalidate()
         taps[key] = nil
         rebuildKeys.remove(key)
         acknowledged.remove(key)
+        lagging[key] = nil
+        // Flap breaker: released for "plays elsewhere" right after it was created, more than once
+        // (e.g. a device report that includes our own aggregate in some form we don't strip).
+        if reason == .unwanted, elsewhere.contains(key),
+           now().timeIntervalSince(tap.createdAt) < Self.flapWindow {
+            flaps[key, default: 0] += 1
+            if flaps[key, default: 0] >= Self.flapLimit {
+                markFailed(key, device: tap.device, processes: tap.processes)
+            }
+        }
+        updatePolling()
+    }
+
+    private func markFailed(_ key: String, device: AudioDeviceID, processes: [AudioObjectID]) {
+        failed[key] = FailedAttempt(device: device, processes: Set(processes))
+        notices[key] = "Couldn't keep \(name(for: key))'s volume on this device"
+        log.error("Released \(key, privacy: .public): couldn't keep its volume on device \(device)")
         updatePolling()
     }
 
     private func targets() -> [String: [AudioObjectID]] {
-        MixerRules.tapTargets(groups: effectiveGroups(), settings: store.all, defaultOutput: defaultOutput)
+        var result = MixerRules.tapTargets(groups: effectiveGroups(), settings: store.all,
+                                           defaultOutput: defaultOutput)
+        for key in elsewhere { result[key] = nil }
+        return result
     }
 
-    /// Right after a default-device change, a tapped process can still report the device its tap was
-    /// built on. Treat that as "following the default" so the app is rebuilt, not released to full
-    /// volume. Once rebuilt, a process that really stays on the old device is released as usual.
+    /// The process view the rules see:
+    /// - Sidekick's own aggregate devices never count as "another device".
+    /// - Right after a default-device change, a tapped process can still report the device its tap
+    ///   was built on (before the rebuild) or the previous device (after it, see `Lag`). Treat that
+    ///   as "following the default" so the app is rebuilt or kept, not released to full volume.
     private func effectiveGroups() -> [String: [AudioProcess]] {
-        var result = groups
-        for (key, tap) in taps where tap.device != defaultOutput {
-            result[key] = result[key]?.map { process in
-                guard process.outputDevices == [tap.device] else { return process }
+        let own = ownAggregates()
+        var result: [String: [AudioProcess]] = [:]
+        for (key, processes) in groups {
+            let tap = taps[key]
+            let lag = lagging[key]
+            result[key] = processes.map { process in
+                var devices = process.outputDevices.filter { !own.contains($0) }
+                if let tap, tap.device != defaultOutput, devices == [tap.device] { devices = [] }
+                if let lag, lag.processes.contains(process.objectID), devices == [lag.device] { devices = [] }
+                guard devices != process.outputDevices else { return process }
                 return AudioProcess(objectID: process.objectID, pid: process.pid, bundleID: process.bundleID,
-                                    isRunningOutput: process.isRunningOutput, outputDevices: [])
+                                    isRunningOutput: process.isRunningOutput, outputDevices: devices)
             }
         }
         return result
     }
 
+    private func ownAggregates() -> Set<AudioObjectID> {
+        Set(taps.values.map(\.handle.aggregateID)).subtracting([kAudioObjectUnknown])
+    }
+
+    /// A lagging process stops lagging once it reports anything other than the previous device
+    /// (or after `lagWindow`, when it's taken at its word).
+    private func pruneLagging() {
+        let own = ownAggregates()
+        let date = now()
+        for (key, lag) in lagging {
+            let current = groups[key] ?? []
+            var kept = lag.processes.filter { id in
+                current.first { $0.objectID == id }.map { $0.outputDevices.filter { !own.contains($0) } == [lag.device] } ?? false
+            }
+            if date.timeIntervalSince(lag.since) >= Self.lagWindow { kept.removeAll() }
+            if kept.isEmpty { lagging[key] = nil } else { lagging[key]?.processes = kept }
+        }
+    }
+
+    private func updateElsewhere() {
+        guard let defaultOutput else { return }
+        for (key, processes) in effectiveGroups() {
+            if processes.contains(where: { !$0.outputDevices.isEmpty && $0.outputDevices != [defaultOutput] }) {
+                elsewhere.insert(key)
+            } else if processes.contains(where: { $0.outputDevices == [defaultOutput] }) {
+                elsewhere.remove(key)
+            }
+        }
+    }
+
     private func updateRows() {
         let new = MixerRules.rows(groups: effectiveGroups(), apps: apps, settings: store.all,
                                   defaultOutput: defaultOutput)
+            .map { row in
+                guard elsewhere.contains(row.id), !row.playsElsewhere else { return row }
+                return MixerRow(id: row.id, name: row.name, isPlaying: row.isPlaying, setting: row.setting,
+                                playsElsewhere: true)
+            }
         if new != rows { rows = new }
     }
 

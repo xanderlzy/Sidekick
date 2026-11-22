@@ -44,6 +44,9 @@ protocol TapHandle: AnyObject {
     func acknowledgeSilence()
     /// The IO buffers stopped matching the layout read at setup; output is silent. Rebuild or release.
     var hasFault: Bool { get }
+    /// Sidekick's private aggregate device for this tap. It must never count as "another device"
+    /// when it shows up in a process's `outputDevices`.
+    var aggregateID: AudioObjectID { get }
 }
 
 enum MixerTapError: Error, Equatable {

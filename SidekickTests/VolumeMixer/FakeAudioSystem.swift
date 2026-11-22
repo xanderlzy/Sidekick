@@ -12,6 +12,9 @@ final class FakeTap: TapHandle {
     private(set) var setProcessesCalls: [[AudioObjectID]] = []
     private(set) var invalidated = false
     private(set) var acknowledgeCount = 0
+    private(set) var setGainCount = 0
+    /// A distinct fake aggregate per tap (1000 + serial).
+    var aggregateID: AudioObjectID { AudioObjectID(1000 + serial) }
     private unowned let system: FakeAudioSystem
 
     var level: Float = 0
@@ -27,7 +30,10 @@ final class FakeTap: TapHandle {
         self.system = system
     }
 
-    func setGain(_ gain: Float) { self.gain = gain }
+    func setGain(_ gain: Float) {
+        self.gain = gain
+        setGainCount += 1
+    }
 
     func setProcesses(_ ids: [AudioObjectID]) throws {
         if let setProcessesError { throw setProcessesError }
@@ -114,9 +120,28 @@ final class FakeAudioSystem: AudioSystem {
         return tap
     }
 
+    /// While true, the permission check suspends until `releaseHeldPermission()`.
+    var holdPermission = false
+    private var heldPermission: [CheckedContinuation<Void, Never>] = []
+
     func checkPermission() async -> SystemAudioState {
         permissionChecks += 1
+        events.append("permission")
+        if holdPermission {
+            await withCheckedContinuation { heldPermission.append($0) }
+        }
         return permissionState
+    }
+
+    func releaseHeldPermission() {
+        holdPermission = false
+        let waiting = heldPermission
+        heldPermission.removeAll()
+        waiting.forEach { $0.resume() }
+    }
+
+    func waitForHeldPermission() async {
+        for _ in 0..<10_000 where heldPermission.isEmpty { await Task.yield() }
     }
 
     // MARK: Test drivers
