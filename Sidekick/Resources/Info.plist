@@ -16,6 +16,7 @@
 	<key>LSUIElement</key><true/>
 	<key>NSMicrophoneUsageDescription</key><string>Sidekick's Dictation listens only while you hold the dictation key.</string>
 	<key>NSSpeechRecognitionUsageDescription</key><string>Sidekick's Dictation turns your speech into text on this Mac.</string>
+	<key>NSAudioCaptureUsageDescription</key><string>Sidekick's Volume Mixer adjusts each app's volume by routing its sound through Sidekick. Nothing is recorded or saved.</string>
 	<key>SUFeedURL</key><string>$(SIDEKICK_FEED_URL)</string>
 	<key>SUPublicEDKey</key><string>6HTdOJFqwIgCAwE6NmxNONaCCCbEL+6npKf0hW+i57w=</string>
 	<key>SUEnableAutomaticChecks</key><true/>
