@@ -34,6 +34,10 @@ final class TapController {
 
     /// Polls between the backup permission checks (Task 4 contract: every 30 s while taps exist).
     static let periodicCheckPolls = 30
+    /// Only polls while some tap has had IO this recently count toward `periodicCheckPolls`: the
+    /// probe opens the default output (waking Bluetooth/USB devices), and an idle tap mutes nothing
+    /// audible. Revocation while idle is still caught: a resumed app's zero input trips the watchdog.
+    static let activeIOWindow: TimeInterval = 30
     /// A tap released for "plays to another device" this soon after creation counts as a flap.
     static let flapWindow: TimeInterval = 10
     /// The second flap within the window stops the key being tapped on that device.
@@ -450,7 +454,8 @@ final class TapController {
             requestForcedReconcile()
         }
         guard !taps.isEmpty else { probeRequested = false; return }
-        polls += 1
+        let ioActive = taps.values.contains { $0.handle.secondsSinceIO < Self.activeIOWindow }
+        if ioActive { polls += 1 }
         let date = now()
         for (key, tap) in taps {
             if tap.handle.level > 0 { acknowledged.remove(key) }
@@ -479,7 +484,7 @@ final class TapController {
         }
 
         let revoked = taps.filter { $0.value.handle.looksRevoked }.map { ($0.key, $0.value.handle) }
-        let periodic = polls % Self.periodicCheckPolls == 0
+        let periodic = ioActive && polls % Self.periodicCheckPolls == 0
         let probe = probeRequested
         probeRequested = false
         guard !revoked.isEmpty || periodic || probe else { return }

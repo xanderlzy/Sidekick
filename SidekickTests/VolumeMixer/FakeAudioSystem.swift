@@ -20,6 +20,8 @@ final class FakeTap: TapHandle {
     var level: Float = 0
     var looksRevoked = false
     var hasFault = false
+    /// Seconds since the IO proc last ran; recent by default (the app is playing).
+    var secondsSinceIO: TimeInterval = 0
     var setProcessesError: (any Error)?
 
     init(serial: Int, processes: [AudioObjectID], device: AudioDeviceID, gain: Float, system: FakeAudioSystem) {

@@ -124,6 +124,10 @@ final class AppTap: TapHandle {
 
     var hasFault: Bool { !invalidated && session.io.fault.load(ordering: .relaxed) }
 
+    var secondsSinceIO: TimeInterval {
+        invalidated ? .infinity : HostClock.seconds(since: session.io.lastCallback.load(ordering: .relaxed))
+    }
+
     var aggregateID: AudioObjectID { session.aggregateID }
 
     // MARK: Permission evidence
@@ -168,14 +172,15 @@ final class TapIOState: Sendable {
     let nonZeroCallbacks = Atomic<UInt64>(0)
     /// Consecutive all-zero input frames; reset to 0 by any non-zero callback.
     let zeroFrames = Atomic<UInt64>(0)
-    /// `mach_absolute_time()` of the last callback / the last non-zero callback (0 = never).
+    /// `mach_continuous_time()` of the last callback / the last non-zero callback (0 = never).
+    /// The continuous clock keeps counting through sleep, so old evidence never looks fresh.
     let lastCallback = Atomic<UInt64>(0)
     let lastNonZero = Atomic<UInt64>(0)
     let fault = Atomic<Bool>(false)
 
     /// Called from the IO proc. Real-time safe.
     func record(_ result: TapRenderer.Result) {
-        let now = mach_absolute_time()
+        let now = mach_continuous_time()
         callbacks.wrappingAdd(1, ordering: .relaxed)
         lastCallback.store(now, ordering: .relaxed)
         level.store(min(result.peak, 1).bitPattern, ordering: .relaxed)
@@ -212,10 +217,11 @@ enum HostClock {
         return info
     }()
 
-    /// Seconds since a `mach_absolute_time()` stamp; infinity for 0 (never).
+    /// Seconds since a `mach_continuous_time()` stamp (same timebase as `mach_absolute_time()`, but
+    /// it includes time asleep); infinity for 0 (never).
     static func seconds(since stamp: UInt64) -> TimeInterval {
         guard stamp != 0 else { return .infinity }
-        let now = mach_absolute_time()
+        let now = mach_continuous_time()
         guard now > stamp else { return 0 }
         let nanos = Double(now - stamp) * Double(timebase.numer) / Double(timebase.denom)
         return nanos / 1e9

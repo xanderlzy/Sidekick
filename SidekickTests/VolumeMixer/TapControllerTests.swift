@@ -895,4 +895,20 @@ struct TapControllerTests {
         #expect(rig.controller.rows.first?.playsElsewhere == true)
         #expect(rig.controller.notice == nil)
     }
+
+    /// The periodic probe wakes the output device; idle taps gain nothing from it.
+    @Test func periodicCheckCountsOnlyWhileTapsSeeIO() async {
+        let rig = await makeRig()
+        let tap = await lowered(rig)
+        let before = rig.system.permissionChecks
+        tap.secondsSinceIO = TapController.activeIOWindow + 1 // idle (paused) the whole time
+        for _ in 0..<90 { rig.controller.pollWatchdog(); await rig.controller.settle() }
+        #expect(rig.system.permissionChecks == before)
+        tap.secondsSinceIO = 0.1 // playing again
+        for _ in 0..<29 { rig.controller.pollWatchdog(); await rig.controller.settle() }
+        #expect(rig.system.permissionChecks == before)
+        rig.controller.pollWatchdog()
+        await rig.controller.settle()
+        #expect(rig.system.permissionChecks == before + 1)
+    }
 }
