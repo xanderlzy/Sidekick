@@ -278,6 +278,39 @@ struct TapControllerTests {
         #expect(rig.system.stopListeningCount == 1)
     }
 
+    @Test func resetReleasesTap() async {
+        let rig = await makeRig()
+        let tap = await lowered(rig)
+        rig.controller.reset(music)
+        await rig.controller.settle()
+        #expect(tap.invalidated)
+        #expect(rig.controller.activeTapKeys.isEmpty)
+        #expect(rig.store.all.isEmpty)
+    }
+
+    @Test func resetAllReleasesEveryTap() async {
+        let rig = await makeRig(stored: [music: AppVolume(volume: 0.5, muted: false),
+                                         chrome: AppVolume(volume: 0.2, muted: true)])
+        rig.system.processList.append(chromeProcess())
+        rig.system.fireProcessesChanged()
+        await rig.controller.settle()
+        #expect(rig.system.liveTaps.count == 2)
+        rig.controller.resetAll()
+        await rig.controller.settle()
+        #expect(rig.system.liveTaps.isEmpty)
+        #expect(rig.controller.activeTapKeys.isEmpty)
+        #expect(rig.store.all.isEmpty)
+    }
+
+    @Test func resetWhileStoppedStillUpdatesStore() async {
+        let rig = await makeRig(stored: [music: AppVolume(volume: 0.5, muted: false),
+                                         chrome: AppVolume(volume: 0.2, muted: false)], start: false)
+        rig.controller.reset(music)
+        #expect(Set(rig.store.all.keys) == [chrome])
+        rig.controller.resetAll()
+        #expect(rig.store.all.isEmpty)
+    }
+
     @Test func settingsPersistThroughController() async {
         let rig = await makeRig()
         rig.controller.setVolume(0.3, for: music)

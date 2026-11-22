@@ -206,6 +206,23 @@ final class TapController {
         apply(setting, for: key)
     }
 
+    /// Forgets one app's remembered volume; a live tap is released by the reconcile.
+    func reset(_ key: String) {
+        store.reset(key)
+        settingsChanged()
+    }
+
+    func resetAll() {
+        store.resetAll()
+        settingsChanged()
+    }
+
+    private func settingsChanged() {
+        guard running else { return }
+        updateRows()
+        requestReconcile()
+    }
+
     /// The tap's input peak scaled by the current gain, so it shows what's heard. Nil when untapped.
     func level(for key: String) -> Float? {
         guard let tap = taps[key] else { return nil }

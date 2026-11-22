@@ -42,6 +42,7 @@
 		26EBCD04F01516DC47F616BF /* RestoreStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0D01BADBE9A88DF71F379F5E /* RestoreStore.swift */; };
 		270779E4D23DA281E6EC68AD /* WhisperTranscriberTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = C99038C92C724FE32B9ADBBA /* WhisperTranscriberTests.swift */; };
 		289E756FE40086BAF08E4514 /* Updater.swift in Sources */ = {isa = PBXBuildFile; fileRef = E7FC03B32A3607A9D64F5258 /* Updater.swift */; };
+		297413957A6A0EFD1D60CF92 /* VolumeMixerToolTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = BD6CB7D0A4CC2333B12E06B4 /* VolumeMixerToolTests.swift */; };
 		2B0138E42FD6F2F6D9FFC363 /* CycleStateTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6639631B09407AA36A9228A9 /* CycleStateTests.swift */; };
 		2B36AEA600DF0D84133CB8C5 /* AutoAdvanceTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = E6624505FA892BD0763BD5A5 /* AutoAdvanceTests.swift */; };
 		2B681CF264FE0CDA86311F2A /* SpeechModelStep.swift in Sources */ = {isa = PBXBuildFile; fileRef = FF3533688710E76319C72268 /* SpeechModelStep.swift */; };
@@ -127,9 +128,11 @@
 		C6518DA7084EAFEE98C583CE /* PolisherTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3D437996FD179A89893C1AB1 /* PolisherTests.swift */; };
 		CB9470D49725D0DA37F9CCC7 /* WindowLayoutTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3CE739642F1164870D8B2194 /* WindowLayoutTests.swift */; };
 		CD16EFC1A0AE35DD815A3040 /* RetentionPolicyTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = D6A5898E089CFE1E23F08A3F /* RetentionPolicyTests.swift */; };
+		CE2691E74D3C28E64884F44C /* VolumeMixerTool.swift in Sources */ = {isa = PBXBuildFile; fileRef = BDAEA6728425A7C645584692 /* VolumeMixerTool.swift */; };
 		CE9F6123BEC6F541C6AAD2EB /* Tool.swift in Sources */ = {isa = PBXBuildFile; fileRef = CD376CD249438490D5F90B6B /* Tool.swift */; };
 		D5A354617A6989EB40B7D726 /* RetentionPolicy.swift in Sources */ = {isa = PBXBuildFile; fileRef = 503B3711F134294E37C60A58 /* RetentionPolicy.swift */; };
 		D7BF4AA63ACF5087B2D337B4 /* PillView.swift in Sources */ = {isa = PBXBuildFile; fileRef = FE54D8652E39E369A3B97993 /* PillView.swift */; };
+		D8EF72425FABAFB6A7D7AEA8 /* VolumeMixerSettingsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = DB4AA1A19A562F14B288226B /* VolumeMixerSettingsView.swift */; };
 		DE07EA075B656DEBE0F5B034 /* AppGrouping.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9408221B228130DFF67D0D7E /* AppGrouping.swift */; };
 		E2A34E31D33D149B17A3B306 /* FlowLayout.swift in Sources */ = {isa = PBXBuildFile; fileRef = B51969FE17541CF272D593EC /* FlowLayout.swift */; };
 		E398EBA014F968378230A1DF /* GlobeKeyStep.swift in Sources */ = {isa = PBXBuildFile; fileRef = 687BE0CC9DAF3B9BCDA5B6A7 /* GlobeKeyStep.swift */; };
@@ -270,6 +273,8 @@
 		BC5F119FAD4C60B29D5FD6C4 /* LevelMeter.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LevelMeter.swift; sourceTree = "<group>"; };
 		BC81589B73200224EF7DAF6F /* FakeTool.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FakeTool.swift; sourceTree = "<group>"; };
 		BCAF18B8646B067D2D002F33 /* HotkeyKeyTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HotkeyKeyTests.swift; sourceTree = "<group>"; };
+		BD6CB7D0A4CC2333B12E06B4 /* VolumeMixerToolTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = VolumeMixerToolTests.swift; sourceTree = "<group>"; };
+		BDAEA6728425A7C645584692 /* VolumeMixerTool.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = VolumeMixerTool.swift; sourceTree = "<group>"; };
 		C27CA5E7DEB655B4DC8A0341 /* DictationToolTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DictationToolTests.swift; sourceTree = "<group>"; };
 		C32657C9139026CB6740FEA0 /* StatsStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = StatsStore.swift; sourceTree = "<group>"; };
 		C8914312E0D2B80B10C59462 /* PillPanel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PillPanel.swift; sourceTree = "<group>"; };
@@ -284,6 +289,7 @@
 		D3560EACD488D73A1855D5D1 /* Sounds.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Sounds.swift; sourceTree = "<group>"; };
 		D3B2937DF90CCB04E728900D /* WindowManagerTool.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WindowManagerTool.swift; sourceTree = "<group>"; };
 		D6A5898E089CFE1E23F08A3F /* RetentionPolicyTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RetentionPolicyTests.swift; sourceTree = "<group>"; };
+		DB4AA1A19A562F14B288226B /* VolumeMixerSettingsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = VolumeMixerSettingsView.swift; sourceTree = "<group>"; };
 		DF89FFB34DBC0536B999CF40 /* MicrophoneStep.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MicrophoneStep.swift; sourceTree = "<group>"; };
 		E0EF614EA500E4A5568EFFD0 /* SnapAreasTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SnapAreasTests.swift; sourceTree = "<group>"; };
 		E4CE1A6D8BCCE86A23FC8852 /* AXWindow.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AXWindow.swift; sourceTree = "<group>"; };
@@ -513,6 +519,7 @@
 				3323A8195F716EECE5B12F2C /* SystemAudioPermissionTests.swift */,
 				A65FF19FC142C822A6AFC635 /* TapControllerTests.swift */,
 				B229C5C16ECF1C1BDAB1A90B /* TapLayoutTests.swift */,
+				BD6CB7D0A4CC2333B12E06B4 /* VolumeMixerToolTests.swift */,
 			);
 			path = VolumeMixer;
 			sourceTree = "<group>";
@@ -674,6 +681,8 @@
 				A1EDB23FBAFA2C4E8E045247 /* SystemVolume.swift */,
 				B2A175227A8CBC782CFE0D63 /* TapController.swift */,
 				B56ED1D22A7B3AD59B050C1F /* TapLayout.swift */,
+				DB4AA1A19A562F14B288226B /* VolumeMixerSettingsView.swift */,
+				BDAEA6728425A7C645584692 /* VolumeMixerTool.swift */,
 			);
 			path = VolumeMixer;
 			sourceTree = "<group>";
@@ -872,6 +881,8 @@
 				46A6C9BB0744724F5FC0176E /* Transcriber.swift in Sources */,
 				72B37DFE12F920C833C55819 /* TryItStep.swift in Sources */,
 				289E756FE40086BAF08E4514 /* Updater.swift in Sources */,
+				D8EF72425FABAFB6A7D7AEA8 /* VolumeMixerSettingsView.swift in Sources */,
+				CE2691E74D3C28E64884F44C /* VolumeMixerTool.swift in Sources */,
 				8808B930D46A21D63AB9CFC3 /* WelcomeStep.swift in Sources */,
 				8B5A0A37234C4FC7A213CED9 /* WhisperTranscriber.swift in Sources */,
 				0A742B7732BD363763CAD26B /* WindowAction.swift in Sources */,
@@ -929,6 +940,7 @@
 				4BC3A93A44316CA325A15927 /* TestSupport.swift in Sources */,
 				0B7C7F5B9147F6CA07CF82DB /* TextInserterTests.swift in Sources */,
 				2430FC6174402E67A46133CF /* ToolRegistryTests.swift in Sources */,
+				297413957A6A0EFD1D60CF92 /* VolumeMixerToolTests.swift in Sources */,
 				270779E4D23DA281E6EC68AD /* WhisperTranscriberTests.swift in Sources */,
 				1287BE9935EE6B5FB3003261 /* WindowActionTests.swift in Sources */,
 				CB9470D49725D0DA37F9CCC7 /* WindowLayoutTests.swift in Sources */,

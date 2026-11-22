@@ -1,4 +1,5 @@
 import Foundation
+import Observation
 
 /// One app's remembered volume. Gain is `volume²` (no boost); muted is silent.
 struct AppVolume: Codable, Equatable, Sendable {
@@ -17,11 +18,11 @@ struct AppVolume: Codable, Equatable, Sendable {
 
 /// Remembered per-app volumes, keyed by bundle ID, stored as JSON in UserDefaults.
 /// Standard entries are never stored, so `all` is exactly the remembered list.
-@MainActor
+@MainActor @Observable
 final class MixerSettingsStore {
     static let key = "volumeMixer.settings"
 
-    private let defaults: UserDefaults
+    @ObservationIgnored private let defaults: UserDefaults
     private var entries: [String: AppVolume]
 
     init(defaults: UserDefaults = .standard) {
