@@ -96,7 +96,32 @@ Add a **Volume Mixer** tool to Sidekick (after Dictation and Window Manager). It
 - If the device has no software volume (some HDMI and USB devices), the slider is disabled with the caption "This device controls its own volume".
 - It stays in sync with changes from the keyboard volume keys or Control Center while the panel is open.
 
-### Menu bar item and panel
+### Revision 2026-11-22: the mixer is a native macOS menu
+After the hands-on test, the user asked for the mixer to "look mac native and the same" as Sidekick's own menu bar menu, which is a standard SwiftUI `MenuBarExtra` menu (an `NSMenu`). Decision (approved by the user):
+- **Menu, not panel.** The mixer becomes a real `NSMenu` on its status item. That gives it the same material, system font, highlight, open/close behaviour, Esc and click-outside as Sidekick's menu and Apple's Sound menu.
+- **This revision replaces the custom panel below.** The ink-and-paper styling and custom sliders described in the original panel section no longer apply to the mixer.
+- **Layout:**
+  - Bold "Sound" header.
+  - System row: speaker glyph (mute), native slider, %. Device name below it as a small grey caption.
+  - Separator.
+  - "Apps" section header.
+  - Per app: app icon and name on one line, then a native slider and % beneath. This avoids the truncation seen with "Google Chrome…".
+  - Separator, then "Volume Mixer Settings…".
+- **Native controls:** sliders are native (`NSSlider`). Clicking the app icon still mutes; a muted row dims its icon and greys its slider. Dragging a muted app's slider unmutes it.
+- **Playing indicator:** the level bars and dots are replaced by one small, subtle grey "playing" mark next to the name.
+- **States:**
+  - The needsPermission, empty and notice states become disabled grey menu items.
+  - The permission state adds an "Open Settings…" item.
+  - Rows that play to another device show a disabled slider with "Plays to another device".
+- **Bug fix:** apps whose audio comes from a helper (Chrome) must show the parent app's real icon, not a placeholder.
+
+Plan: `docs/superpowers/plans/2026-11-22-volume-mixer-native-menu.md`.
+
+Approaches considered:
+1. A real `NSMenu`. Chosen: identical to Sidekick's menu by construction.
+2. Restyle the custom panel to imitate a menu. Rejected: it would always be slightly off.
+
+### Menu bar item and panel (original; superseded by the revision above)
 - While the tool is on, an `NSStatusItem` shows an SF Symbol speaker (`speaker.wave.2`).
 - Clicking it toggles a borderless `NSPanel` anchored under the item.
   - The panel springs open (`Motion.snappy` scale and opacity from the top edge) and closes on a click outside, on Esc, or on a second click on the icon.
