@@ -74,6 +74,40 @@ struct TapLayoutTests {
         #expect(l.outputBufferCount == 2)
     }
 
+    // MARK: - IO proc stream usage
+
+    /// Only the tap's input stream is on, so a headset that shares one device for output and input
+    /// (AirPods) isn't asked to open its mic.
+    @Test func streamUsageEnablesOnlyTheTapInput() throws {
+        let l = try #require(layout(input: [mono, stereo], sub: 1, output: [stereo]))
+        #expect(l.inputStreamUsage == [0, 1])
+        #expect(l.outputStreamUsage == [1])
+        let speakers = try #require(layout(input: [stereo], sub: 0, output: [stereo]))
+        #expect(speakers.inputStreamUsage == [1])
+    }
+
+    /// The renderer writes only the first output stream; the others stay off.
+    @Test func streamUsageEnablesOnlyTheWrittenOutput() throws {
+        let planarMic = StreamShape(channels: 2, isFloat32: true, isInterleaved: false)
+        let l = try #require(layout(input: [planarMic, mono, stereo], sub: 2, output: [stereo, mono]))
+        #expect(l.inputStreamUsage == [0, 0, 1])
+        #expect(l.outputStreamUsage == [1, 0])
+    }
+
+    /// Disabled streams arrive as NULL buffers in a full-length list (kAudioDevicePropertyIOProcStreamUsage).
+    @Test func rendersWithDisabledStreamsAsNullBuffers() throws {
+        let l = try #require(layout(input: [mono, stereo], sub: 1, output: [stereo, mono]))
+        let lists = Lists(input: [[0.9, 0.9], [0.1, 0.2, 0.3, 0.4]], inputChannels: [1, 2], output: [2, 1], frames: 2)
+        lists.input[0].mData?.deallocate()
+        lists.input[0] = AudioBuffer(mNumberChannels: 1, mDataByteSize: 0, mData: nil)
+        lists.output[1].mData?.deallocate()
+        lists.output[1] = AudioBuffer(mNumberChannels: 1, mDataByteSize: 0, mData: nil)
+        var ramp = settled(1)
+        let r = TapRenderer.render(layout: l, input: lists.input, output: lists.output, ramp: &ramp, target: 1)
+        #expect(r.ok)
+        #expect(lists.out(0) == [0.1, 0.2, 0.3, 0.4])
+    }
+
     // MARK: - Render
 
     private final class Lists {

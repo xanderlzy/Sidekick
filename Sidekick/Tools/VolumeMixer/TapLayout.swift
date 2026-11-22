@@ -21,6 +21,17 @@ struct TapLayout: Equatable, Sendable {
     let outputBufferCount: Int
     let outputChannels: Int
     let outputInterleaved: Bool
+    let inputStreamCount: Int
+    /// The tap's stream among the aggregate's input streams (right after the subdevice's).
+    let tapStream: Int
+    let outputStreamCount: Int
+
+    /// `kAudioDevicePropertyIOProcStreamUsage` for the input scope: only the tap's stream is on. The
+    /// subdevice's own inputs (a headset mic on the same device, e.g. AirPods) stay off, so running
+    /// the IO proc doesn't open them. Disabled streams arrive as NULL buffers; buffer indices don't move.
+    var inputStreamUsage: [UInt32] { (0..<inputStreamCount).map { $0 == tapStream ? 1 : 0 } }
+    /// Output scope: only the first stream, the one the renderer writes.
+    var outputStreamUsage: [UInt32] { (0..<outputStreamCount).map { $0 == 0 ? 1 : 0 } }
 
     /// - Parameters:
     ///   - input/output: the aggregate's streams in order (`kAudioStreamPropertyVirtualFormat`).
@@ -47,7 +58,10 @@ struct TapLayout: Equatable, Sendable {
             tapInterleaved: tapStream.isInterleaved,
             outputBufferCount: outputBuffers.count,
             outputChannels: first.channels,
-            outputInterleaved: first.isInterleaved)
+            outputInterleaved: first.isInterleaved,
+            inputStreamCount: input.count,
+            tapStream: subdeviceInputStreams,
+            outputStreamCount: output.count)
     }
 }
 

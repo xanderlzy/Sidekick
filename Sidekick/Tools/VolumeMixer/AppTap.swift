@@ -310,6 +310,7 @@ final class TapSession: Sendable {
                       "create IO proc")
             guard let procID else { throw MixerTapError.coreAudio("create IO proc", -1) }
             objects.procID = procID
+            applyStreamUsage(aggregate: aggregate, procID: procID, layout: layout)
             try check(AudioDeviceStart(aggregate, procID), "start IO")
 
             return TapSession(objects: objects, sampleRate: sampleRate, io: io)
@@ -372,6 +373,44 @@ final class TapSession: Sendable {
         if tap != kAudioObjectUnknown {
             AudioHardwareDestroyProcessTap(tap)
         }
+    }
+
+    private static let streamUsageFailureLogged = Atomic<Bool>(false)
+
+    /// Turns on only the streams the IO proc uses (the tap's input, the first output), so a headset
+    /// sharing one device for output and mic isn't asked to open the mic. Best effort: on failure the
+    /// tap still works as before (all streams on); logged once per launch. Runs during setup, never
+    /// on the IO thread.
+    private static func applyStreamUsage(aggregate: AudioDeviceID, procID: AudioDeviceIOProcID, layout: TapLayout) {
+        let input = setStreamUsage(aggregate, procID, scope: kAudioObjectPropertyScopeInput, layout.inputStreamUsage)
+        let output = setStreamUsage(aggregate, procID, scope: kAudioObjectPropertyScopeOutput, layout.outputStreamUsage)
+        guard input != noErr || output != noErr,
+              streamUsageFailureLogged.compareExchange(expected: false, desired: true, ordering: .relaxed).exchanged
+        else { return }
+        Logger(subsystem: "com.sidekick.app", category: "VolumeMixer").error(
+            "IO proc stream usage not applied (input \(input, privacy: .public), output \(output, privacy: .public)); all streams stay on")
+    }
+
+    /// Writes an `AudioHardwareIOProcStreamUsage` (a header plus one UInt32 per stream).
+    private static func setStreamUsage(_ device: AudioDeviceID, _ procID: AudioDeviceIOProcID,
+                                       scope: AudioObjectPropertyScope, _ usage: [UInt32]) -> OSStatus {
+        guard !usage.isEmpty else { return noErr }
+        typealias Usage = AudioHardwareIOProcStreamUsage
+        guard let procOffset = MemoryLayout<Usage>.offset(of: \Usage.mIOProc),
+              let countOffset = MemoryLayout<Usage>.offset(of: \Usage.mNumberStreams),
+              let flagsOffset = MemoryLayout<Usage>.offset(of: \Usage.mStreamIsOn) else { return -1 }
+        let size = max(flagsOffset + MemoryLayout<UInt32>.stride * usage.count, MemoryLayout<Usage>.size)
+        let raw = UnsafeMutableRawPointer.allocate(byteCount: size, alignment: MemoryLayout<Usage>.alignment)
+        defer { raw.deallocate() }
+        raw.initializeMemory(as: UInt8.self, repeating: 0, count: size)
+        raw.storeBytes(of: unsafeBitCast(procID, to: UnsafeMutableRawPointer.self), toByteOffset: procOffset,
+                       as: UnsafeMutableRawPointer.self)
+        raw.storeBytes(of: UInt32(usage.count), toByteOffset: countOffset, as: UInt32.self)
+        for (index, on) in usage.enumerated() {
+            raw.storeBytes(of: on, toByteOffset: flagsOffset + index * MemoryLayout<UInt32>.stride, as: UInt32.self)
+        }
+        var address = CoreAudioProperties.address(kAudioDevicePropertyIOProcStreamUsage, scope: scope)
+        return AudioObjectSetPropertyData(device, &address, 0, nil, UInt32(size), raw)
     }
 
     private static func readLayout(aggregate: AudioDeviceID, tap: AudioObjectID, device: AudioDeviceID) throws -> TapLayout {
