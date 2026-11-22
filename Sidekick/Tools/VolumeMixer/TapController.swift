@@ -469,12 +469,13 @@ final class TapController {
             }
         }
         if !rebuildKeys.isEmpty { requestForcedReconcile() }
-        if lagging.values.contains(where: { lag in
-            lag.runningSince.values.contains { date.timeIntervalSince($0) >= Self.lagWindow }
-        }) {
-            pruneLagging()
-            updateElsewhere()
-            requestForcedReconcile()
+        if !lagging.isEmpty {
+            // IsRunningOutput changes fire no listener (spike §1), and an app keeping other IO open
+            // (a call app with the mic) can pause or resume without any notification. Re-read the
+            // processes so the lag clock counts real output only; `snapshot()` prunes and expires
+            // lags. A changed world (an expiry marks the key elsewhere) fails the reconcile dedupe.
+            snapshot()
+            reconcileRequested = true
         }
 
         let revoked = taps.filter { $0.value.handle.looksRevoked }.map { ($0.key, $0.value.handle) }

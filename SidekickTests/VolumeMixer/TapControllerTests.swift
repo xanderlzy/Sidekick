@@ -852,4 +852,47 @@ struct TapControllerTests {
         await rig.controller.settle()
         #expect(rig.controller.activeTapKeys == [music, chrome])
     }
+
+    // MARK: Final review fixes
+
+    /// IsRunningOutput changes fire no listener (spike §1): the watchdog must re-read it itself.
+    @Test func lagWatchdogSeesSilentPause() async {
+        let rig = await makeRig()
+        _ = await lowered(rig)
+        rig.system.defaultDevice = headphones
+        rig.system.fireDefaultDeviceChanged()
+        await rig.controller.settle()
+        let rebuilt = rig.system.liveTaps[0]
+        #expect(rebuilt.device == headphones)
+        // Pauses with no notification (it keeps other IO open), still reporting the old device.
+        rig.system.processList = [musicProcess(playing: false, devices: [speakers])]
+        rig.clock.advance(TapController.lagWindow + 1)
+        rig.controller.pollWatchdog()
+        await rig.controller.settle()
+        #expect(!rebuilt.invalidated) // released now, it would play at full volume on resume
+        #expect(rig.controller.rows.first?.playsElsewhere == false)
+    }
+
+    @Test func lagWatchdogSeesSilentResumeOnOldDevice() async {
+        let rig = await makeRig()
+        _ = await lowered(rig)
+        rig.system.processList = [musicProcess(playing: false, devices: [speakers])]
+        rig.system.fireProcessesChanged()
+        await rig.controller.settle()
+        rig.system.defaultDevice = headphones
+        rig.system.fireDefaultDeviceChanged()
+        await rig.controller.settle()
+        let rebuilt = rig.system.liveTaps[0]
+        // Resumes on the old device with no notification: really pinned there.
+        rig.system.processList = [musicProcess(playing: true, devices: [speakers])]
+        rig.controller.pollWatchdog()
+        await rig.controller.settle()
+        #expect(!rebuilt.invalidated)
+        rig.clock.advance(TapController.lagWindow + 1)
+        rig.controller.pollWatchdog()
+        await rig.controller.settle()
+        #expect(rebuilt.invalidated)
+        #expect(rig.controller.rows.first?.playsElsewhere == true)
+        #expect(rig.controller.notice == nil)
+    }
 }
