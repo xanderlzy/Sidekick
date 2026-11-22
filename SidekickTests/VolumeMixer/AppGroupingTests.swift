@@ -30,6 +30,15 @@ struct AppGroupingTests {
         #expect(result == ["com.google.Chrome": [helper]])
     }
 
+    /// Chrome's audio service ("Google Chrome Helper (Aperitif)", com.google.Chrome.helper) is itself
+    /// listed as a running app; it must still fold into Chrome, not get its own row.
+    @Test func helperListedAsARunningAppFoldsIntoItsParent() {
+        let aperitif = RunningApp(pid: 150, bundleID: "com.google.Chrome.helper",
+                                  name: "Google Chrome Helper (Aperitif)")
+        let helper = proc(1, pid: 150, "com.google.Chrome.helper")
+        #expect(group([helper], apps: [chrome, aperitif, music]) == ["com.google.Chrome": [helper]])
+    }
+
     @Test func descendantByParentPID() {
         let p = proc(1, pid: 300, nil)
         let result = group([p], parents: [300: 250, 250: 100])

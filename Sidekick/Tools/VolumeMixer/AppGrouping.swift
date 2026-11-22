@@ -37,7 +37,14 @@ enum AppGrouping {
         ownBundleID: String,
         parentOf: (pid_t) -> pid_t?
     ) -> [String: [AudioProcess]] {
-        let candidates = apps.filter { $0.bundleID != ownBundleID }
+        let others = apps.filter { $0.bundleID != ownBundleID }
+        // Some helpers are listed as running apps themselves (Chrome's audio service, "Google Chrome
+        // Helper (Aperitif)", is com.google.Chrome.helper). One whose bundle ID extends another running
+        // app's is that app's helper, so it never owns a row: its processes fold into the parent.
+        let parents = Set(others.map(\.bundleID))
+        let candidates = others.filter { app in
+            !parents.contains { app.bundleID.hasPrefix($0 + ".") }
+        }
         var result: [String: [AudioProcess]] = [:]
         for process in processes {
             let bundle = process.bundleID ?? ""
