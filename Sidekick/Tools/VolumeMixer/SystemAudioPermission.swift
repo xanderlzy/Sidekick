@@ -23,7 +23,7 @@ enum SystemAudioPermission {
     static let shared = SystemAudioPermissionCore(
         defaults: .standard,
         prober: { SelfTapProbe.run() },
-        recentTapAudio: { AppTap.anyHeardAudioRecently })
+        recentTapAudio: { AppTap.latestAudioEvidence })
 
     /// The last definite result (or `.notPrompted` / `.unknown`). Never touches Core Audio.
     static var cached: SystemAudioState { shared.cached }
@@ -61,6 +61,14 @@ struct PermissionLedger: Sendable {
         case .unknown, .notPrompted:
             break
         }
+    }
+
+    /// A tap heard non-zero input at `date`: that proves GRANTED at that moment. Recorded at the
+    /// evidence time, never overrides a later denial, and isn't a probe (doesn't refresh `checkedAt`).
+    mutating func noteEvidence(at date: Date) {
+        if definite == .denied, let checkedAt, checkedAt >= date { return }
+        definite = .granted
+        if grantedAt.map({ $0 < date }) ?? true { grantedAt = date }
     }
 
     func state(prompted: Bool) -> SystemAudioState {
@@ -118,7 +126,7 @@ final class SystemAudioPermissionCore {
 
     private let defaults: UserDefaults
     private let prober: Prober
-    private let recentTapAudio: @MainActor () -> Bool
+    private let recentTapAudio: @MainActor () -> Date?
     private let now: () -> Date
     private let automaticWait: Duration
     private let grantWait: Duration
@@ -133,7 +141,7 @@ final class SystemAudioPermissionCore {
     init(
         defaults: UserDefaults,
         prober: @escaping Prober,
-        recentTapAudio: @escaping @MainActor () -> Bool,
+        recentTapAudio: @escaping @MainActor () -> Date?,
         now: @escaping () -> Date = Date.init,
         automaticWait: Duration = .seconds(2),
         grantWait: Duration = .seconds(60),
@@ -170,9 +178,9 @@ final class SystemAudioPermissionCore {
     func ensureGranted() async -> SystemAudioState {
         guard hasPrompted else { return .notPrompted }
         if ledger.isFreshGrant(now: now()) { return .granted }
-        if recentTapAudio() {
-            ledger.record(.granted, at: now())
-            return .granted
+        if let evidence = recentTapAudio() {
+            ledger.noteEvidence(at: evidence)
+            if ledger.isFreshGrant(now: now()) { return .granted }
         }
         // The first TCC lookup of a session can exceed the 2 s wait, so give `unknown` one more
         // wait (this joins the same running probe) before reporting it.

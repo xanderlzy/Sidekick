@@ -147,3 +147,31 @@ enum TapRenderer {
         return result
     }
 }
+
+/// Zero-input watchdog decision (spike §3), with backoff for streams that stay open but silent.
+/// Pure: fed the IO counters by `AppTap`.
+///
+/// Fires after 1 s of consecutive all-zero input. Each `acknowledge` (a probe said GRANTED, so it's
+/// silent content) within the same silent run waits longer before firing again: 5 s, then 30 s
+/// (cap). Any non-zero audio (the non-zero callback count changes) re-arms it at 1 s.
+struct SilenceWatchdog: Sendable {
+    static let intervals: [Double] = [1, 5, 30]
+
+    private var ackNonZero: UInt64?
+    private var ackZeroFrames: UInt64 = 0
+    private var level = 0
+
+    func looksRevoked(nonZero: UInt64, zeroFrames: UInt64, sampleRate: Double) -> Bool {
+        if let ackNonZero, ackNonZero == nonZero {
+            let wait = UInt64(Self.intervals[level] * sampleRate)
+            return zeroFrames >= ackZeroFrames &+ wait
+        }
+        return zeroFrames >= UInt64(Self.intervals[0] * sampleRate)
+    }
+
+    mutating func acknowledge(nonZero: UInt64, zeroFrames: UInt64) {
+        level = ackNonZero == nonZero ? min(level + 1, Self.intervals.count - 1) : 1
+        ackNonZero = nonZero
+        ackZeroFrames = zeroFrames
+    }
+}

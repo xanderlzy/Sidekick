@@ -50,7 +50,7 @@ struct SystemAudioPermissionTests {
 
     private func makeCore(
         _ prober: StubProber, prompted: Bool = false, clock: Clock = Clock(),
-        tapAudio: @escaping @MainActor () -> Bool = { false }, defaults: UserDefaults? = nil
+        tapAudio: @escaping @MainActor () -> Date? = { nil }, defaults: UserDefaults? = nil
     ) -> SystemAudioPermissionCore {
         SystemAudioPermissionCore(
             defaults: defaults ?? makeDefaults(prompted: prompted),
@@ -75,7 +75,7 @@ struct SystemAudioPermissionTests {
 
     @Test func neverProbesBeforePrompted() async {
         let prober = StubProber([.granted])
-        let core = makeCore(prober, tapAudio: { true })
+        let core = makeCore(prober, tapAudio: { Date() })
         #expect(core.cached == .notPrompted)
         #expect(await core.check() == .notPrompted)
         #expect(await core.ensureGranted() == .notPrompted)
@@ -158,9 +158,45 @@ struct SystemAudioPermissionTests {
 
     @Test func gateCountsTapAudioAsGrant() async {
         let prober = StubProber([.denied])
-        let core = makeCore(prober, prompted: true, tapAudio: { true })
+        let clock = Clock()
+        let core = makeCore(prober, prompted: true, clock: clock, tapAudio: { clock.now - 10 })
         #expect(await core.ensureGranted() == .granted)
         #expect(prober.calls == 0)
+    }
+
+    @Test func tapEvidenceIsRecordedAtEvidenceTimeWithoutCountingAsACheck() async {
+        let prober = StubProber([.granted])
+        let clock = Clock()
+        var evidence: Date? = clock.now - 25
+        let core = makeCore(prober, prompted: true, clock: clock, tapAudio: { evidence })
+        #expect(await core.ensureGranted() == .granted)
+        evidence = nil
+        clock.advance(6) // evidence is now 31 s old
+        #expect(!core.isGrantedRecently)
+        // Evidence didn't refresh the probe cache: check() still probes.
+        #expect(await core.check() == .granted)
+        #expect(prober.calls == 1)
+    }
+
+    @Test func staleTapEvidenceDoesNotPassTheGate() async {
+        let prober = StubProber([.denied])
+        let clock = Clock()
+        let core = makeCore(prober, prompted: true, clock: clock, tapAudio: { clock.now - 31 })
+        #expect(await core.ensureGranted() == .denied)
+        #expect(prober.calls == 1)
+    }
+
+    @Test func ledgerEvidenceNeverOverridesALaterDenial() {
+        var ledger = PermissionLedger()
+        let t0 = Date(timeIntervalSinceReferenceDate: 0)
+        ledger.record(.denied, at: t0 + 10)
+        ledger.noteEvidence(at: t0 + 5)
+        #expect(ledger.state(prompted: true) == .denied)
+        #expect(!ledger.isFreshGrant(now: t0 + 10))
+        ledger.noteEvidence(at: t0 + 11)
+        #expect(ledger.state(prompted: true) == .granted)
+        #expect(ledger.isFreshGrant(now: t0 + 41))
+        #expect(ledger.isStale(now: t0 + 41, maxAge: 30)) // evidence isn't a check
     }
 
     @Test func gateProbesWhenGrantIsStale() async {

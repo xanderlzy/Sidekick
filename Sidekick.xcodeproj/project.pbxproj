@@ -84,6 +84,7 @@
 		7B8EE7DFB7F45C273BE0CEBB /* HistoryStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8FE76670C73DDF9C49A5B19D /* HistoryStore.swift */; };
 		7CE255D64286301611A5319A /* SetupSheet.swift in Sources */ = {isa = PBXBuildFile; fileRef = BBD6A6CCFEF7715017A22ED7 /* SetupSheet.swift */; };
 		7E502E6DDED87A632E35C42B /* Sparkle in Frameworks */ = {isa = PBXBuildFile; productRef = 31173B8AE6F467630CB691C8 /* Sparkle */; };
+		7F58F53F53D028C972F0E387 /* SilenceWatchdogTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 313DA2568D8BB39A3DAE87F3 /* SilenceWatchdogTests.swift */; };
 		7F6D2111FFBFBF3244D3193F /* SoundsTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = BC1DBA9E1BFDCAB25485B9FD /* SoundsTests.swift */; };
 		80049FC72F64CE0664DFAFE4 /* Formatting.swift in Sources */ = {isa = PBXBuildFile; fileRef = 80CB2E73C5C7B2C3408437F4 /* Formatting.swift */; };
 		8131AA3CAEC376949AD611BD /* WindowManagerTool.swift in Sources */ = {isa = PBXBuildFile; fileRef = D3B2937DF90CCB04E728900D /* WindowManagerTool.swift */; };
@@ -174,6 +175,7 @@
 		2E3C24BC4F202FE73F62564C /* DictationRecord.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DictationRecord.swift; sourceTree = "<group>"; };
 		3009EDC0CC7402C1B5CD597E /* TryItStep.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TryItStep.swift; sourceTree = "<group>"; };
 		30DC85479ACE135EE641A878 /* Permissions.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Permissions.swift; sourceTree = "<group>"; };
+		313DA2568D8BB39A3DAE87F3 /* SilenceWatchdogTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SilenceWatchdogTests.swift; sourceTree = "<group>"; };
 		31AB309C75F5A905D00B73AA /* SettingsRow.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SettingsRow.swift; sourceTree = "<group>"; };
 		31F6465A286236D64BE2E7B0 /* SnapPreviewPanel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SnapPreviewPanel.swift; sourceTree = "<group>"; };
 		3323A8195F716EECE5B12F2C /* SystemAudioPermissionTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SystemAudioPermissionTests.swift; sourceTree = "<group>"; };
@@ -488,6 +490,7 @@
 				263A4EE9225521EDCE0EE70C /* GainRampTests.swift */,
 				670FB7D19C9D73B03234383D /* MixerRulesTests.swift */,
 				1E0A13580AA51E286CD8637C /* MixerSettingsStoreTests.swift */,
+				313DA2568D8BB39A3DAE87F3 /* SilenceWatchdogTests.swift */,
 				3323A8195F716EECE5B12F2C /* SystemAudioPermissionTests.swift */,
 				B229C5C16ECF1C1BDAB1A90B /* TapLayoutTests.swift */,
 			);
@@ -883,6 +886,7 @@
 				336B34A4346318AAA98DAB80 /* ScreenRenderTests.swift in Sources */,
 				99A60D9013BC6BE87DFD1A22 /* SetupCoordinatorTests.swift in Sources */,
 				3402BF89CC003EF4D7569CC9 /* SidebarModelTests.swift in Sources */,
+				7F58F53F53D028C972F0E387 /* SilenceWatchdogTests.swift in Sources */,
 				C1CD20990074591297ED4A23 /* SmokeTests.swift in Sources */,
 				9D4D56B7D5070A00CA0F2F3C /* SnapAreasTests.swift in Sources */,
 				7F6D2111FFBFBF3244D3193F /* SoundsTests.swift in Sources */,

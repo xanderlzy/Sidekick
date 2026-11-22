@@ -30,11 +30,17 @@ protocol TapHandle: AnyObject {
     func setProcesses(_ ids: [AudioObjectID]) throws
     /// Stops IO, destroys the aggregate, then the tap. Idempotent.
     func invalidate()
-    /// IO is running but the input has been all zeros for ≥ 1 s (since the last `acknowledgeSilence()`).
-    /// Either silent content or a revoked permission: run `SystemAudioPermission.check(maxAge: 0)`.
+    /// IO is running and the input has been all zeros for 1 s (see `SilenceWatchdog`). Either silent
+    /// content or a revoked permission: run `SystemAudioPermission.check(maxAge: 0)`.
     var looksRevoked: Bool { get }
-    /// Call after a probe said GRANTED while `looksRevoked` was true (it's just silent content), so the
-    /// watchdog waits for another full second of zeros before firing again.
+    /// Call when that probe said GRANTED (silent content). Within the same silent run the watchdog
+    /// then waits 5 s, then 30 s (cap) of further zeros before firing again; real audio re-arms it at 1 s.
+    /// So a stream held open but silent costs at most one probe per 30 s in steady state.
+    ///
+    /// Worst-case silent window after revocation: ≈2.5 s (≈4 s if the probe times out) when the app was
+    /// audible at the time. If revocation lands during an already-acknowledged silent run and the app
+    /// then starts playing, it can stay silent up to the current backoff (≤30 s), bounded by Task 5's
+    /// 30 s periodic probe — ≈30 s + probe time in the worst case.
     func acknowledgeSilence()
     /// The IO buffers stopped matching the layout read at setup; output is silent. Rebuild or release.
     var hasFault: Bool { get }

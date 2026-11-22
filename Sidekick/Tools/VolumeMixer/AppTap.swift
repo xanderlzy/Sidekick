@@ -13,7 +13,7 @@ final class AppTap: TapHandle {
 
     private let session: TapSession
     private var invalidated = false
-    private var silenceAck: (nonZero: UInt64, zeroFrames: UInt64)?
+    private var watchdog = SilenceWatchdog()
 
     private init(session: TapSession) {
         self.session = session
@@ -49,11 +49,11 @@ final class AppTap: TapHandle {
                 let again = await SystemAudioPermission.ensureGranted()
                 guard again == .granted else { throw MixerTapError.permission(again) }
             }
-            guard !tap.invalidated else { throw MixerTapError.invalidated }
+            // A cancelled make must release, never mute.
+            try Task.checkCancellation()
             // 4. Mute the original. Only after this returns do we raise the copy's gain, so the copy
             // never plays on top of the not-yet-muted original.
             try await offMain { try session.setMuted(true) }
-            guard !tap.invalidated else { throw MixerTapError.invalidated }
             // 5. Ramp from 0 to the target (~20 ms).
             tap.setGain(gain)
             return tap
@@ -74,7 +74,6 @@ final class AppTap: TapHandle {
             if io.nonZeroCallbacks.load(ordering: .relaxed) > 0 { return }
             if io.callbacks.load(ordering: .relaxed) >= 10 { break }
             try? await Task.sleep(for: .milliseconds(10))
-            if invalidated { throw MixerTapError.invalidated }
         }
         if io.nonZeroCallbacks.load(ordering: .relaxed) > 0 { return }
         guard io.callbacks.load(ordering: .relaxed) > 0 else { return }
@@ -113,29 +112,35 @@ final class AppTap: TapHandle {
         let io = session.io
         // IO only runs while a tapped process outputs; no recent callback means nothing is playing.
         guard HostClock.seconds(since: io.lastCallback.load(ordering: .relaxed)) < 0.5 else { return false }
-        let nonZero = io.nonZeroCallbacks.load(ordering: .relaxed)
-        let zeros = io.zeroFrames.load(ordering: .relaxed)
-        let baseline = silenceAck.flatMap { $0.nonZero == nonZero ? $0.zeroFrames : nil } ?? 0
-        return zeros >= baseline &+ UInt64(session.sampleRate)
+        return watchdog.looksRevoked(nonZero: io.nonZeroCallbacks.load(ordering: .relaxed),
+                                     zeroFrames: io.zeroFrames.load(ordering: .relaxed),
+                                     sampleRate: session.sampleRate)
     }
 
     func acknowledgeSilence() {
-        silenceAck = (session.io.nonZeroCallbacks.load(ordering: .relaxed),
-                      session.io.zeroFrames.load(ordering: .relaxed))
+        watchdog.acknowledge(nonZero: session.io.nonZeroCallbacks.load(ordering: .relaxed),
+                             zeroFrames: session.io.zeroFrames.load(ordering: .relaxed))
     }
 
     var hasFault: Bool { !invalidated && session.io.fault.load(ordering: .relaxed) }
 
     // MARK: Permission evidence
 
-    /// A tap delivered non-zero input recently: that proves the permission (spike §3 fast path).
-    func heardAudio(within seconds: TimeInterval) -> Bool {
+    /// When this tap last delivered non-zero input: proof of the permission (spike §3 fast path).
+    var lastAudioEvidence: Date? {
         let stamp = session.io.lastNonZero.load(ordering: .relaxed)
-        return !invalidated && stamp != 0 && HostClock.seconds(since: stamp) <= seconds
+        guard !invalidated, stamp != 0 else { return nil }
+        return Date(timeIntervalSinceNow: -HostClock.seconds(since: stamp))
     }
 
-    static var anyHeardAudioRecently: Bool {
-        registry.contains { $0.tap?.heardAudio(within: PermissionLedger.freshWindow) == true }
+    func heardAudio(within seconds: TimeInterval) -> Bool {
+        guard let evidence = lastAudioEvidence else { return false }
+        return -evidence.timeIntervalSinceNow <= seconds
+    }
+
+    /// The newest non-zero input across all live taps.
+    static var latestAudioEvidence: Date? {
+        registry.compactMap { $0.tap?.lastAudioEvidence }.max()
     }
 
     private struct WeakTap {
@@ -183,10 +188,19 @@ final class TapIOState: Sendable {
     }
 }
 
-/// Ramp state owned by the IO proc. Only the IO thread (one serial queue) touches `ramp`.
+/// Ramp state owned by the IO proc. Only the IO thread (one serial queue) touches `ramp`. Held
+/// behind a pointer so the IO proc's `inout` access has no runtime exclusivity check. Freed when the
+/// IO block is released, which is after the IO proc is destroyed.
 private final class IORenderState: @unchecked Sendable {
-    var ramp: GainRamp
-    init(sampleRate: Double) { ramp = GainRamp(sampleRate: sampleRate, initial: 0) }
+    let ramp: UnsafeMutablePointer<GainRamp>
+    init(sampleRate: Double) {
+        ramp = .allocate(capacity: 1)
+        ramp.initialize(to: GainRamp(sampleRate: sampleRate, initial: 0))
+    }
+    deinit {
+        ramp.deinitialize(count: 1)
+        ramp.deallocate()
+    }
 }
 
 enum HostClock {
@@ -375,7 +389,7 @@ final class TapSession: Sendable {
             let output = UnsafeMutableAudioBufferListPointer(outputData)
             let target = Float(bitPattern: io.gain.load(ordering: .relaxed))
             let result = TapRenderer.render(layout: layout, input: input, output: output,
-                                            ramp: &render.ramp, target: target)
+                                            ramp: &render.ramp.pointee, target: target)
             io.record(result)
         }
     }
