@@ -235,10 +235,12 @@ final class MixerStatusItem: NSObject, MixerMenuBar, NSMenuDelegate {
     // MARK: Actions
 
     private func slide(_ key: String, to value: Double) {
-        if held?.id != key { held = controller.rows.first { $0.id == key } }
+        let row = controller.rows.first { $0.id == key } ?? (held?.id == key ? held : nil)
         controller.setVolume(value, for: key)
         // Moving a muted app's slider unmutes it.
         if controller.rows.first(where: { $0.id == key })?.setting.muted == true { controller.toggleMute(key) }
+        // Taken after the change, so a row that drops out mid-drag shows the new value, unmuted.
+        if let row { held = MixerDisplay.dragged(row, to: value) }
     }
 
     private func endSlide(_ key: String) {

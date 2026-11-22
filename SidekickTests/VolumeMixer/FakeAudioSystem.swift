@@ -19,7 +19,7 @@ final class FakeTap: TapHandle {
     var aggregateID: AudioObjectID { AudioObjectID(1000 + serial) }
     private unowned let system: FakeAudioSystem
 
-    var level: Float = 0
+    var hearsAudio = false
     var looksRevoked = false
     var hasFault = false
     /// Seconds since the IO proc last ran; recent by default (the app is playing).

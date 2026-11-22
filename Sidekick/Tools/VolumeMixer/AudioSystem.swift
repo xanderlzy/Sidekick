@@ -27,8 +27,8 @@ protocol AudioSystem: AnyObject {
 @MainActor
 protocol TapHandle: AnyObject {
     func setGain(_ gain: Float)
-    /// The latest input peak, 0...1 (0 when the app isn't outputting).
-    var level: Float { get }
+    /// The tap heard non-zero audio in the last 0.25 s. Ends an acknowledged silent run.
+    var hearsAudio: Bool { get }
     func setProcesses(_ ids: [AudioObjectID]) throws
     /// Stops IO, destroys the aggregate, then the tap. Idempotent.
     func invalidate()

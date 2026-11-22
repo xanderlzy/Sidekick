@@ -237,12 +237,6 @@ final class TapController {
         requestReconcile()
     }
 
-    /// The tap's input peak scaled by the current gain, so it shows what's heard. Nil when untapped.
-    func level(for key: String) -> Float? {
-        guard let tap = taps[key] else { return nil }
-        return tap.handle.level * store.setting(for: key).gain
-    }
-
     private func apply(_ setting: AppVolume, for key: String) {
         store.set(setting, for: key)
         // A live tap follows at once (the IO ramps it); a reconcile creates or releases taps.
@@ -483,7 +477,7 @@ final class TapController {
         if ioActive { polls += 1 }
         let date = now()
         for (key, tap) in taps {
-            if tap.handle.level > 0 { acknowledged.remove(key) }
+            if tap.handle.hearsAudio { acknowledged.remove(key) }
             if date.timeIntervalSince(tap.createdAt) >= Self.flapWindow { flaps[key] = nil }
             guard tap.handle.hasFault else {
                 if date.timeIntervalSince(tap.createdAt) >= Self.healthyAfter { faultedOn[key] = nil }

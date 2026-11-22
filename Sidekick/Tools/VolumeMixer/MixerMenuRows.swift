@@ -55,7 +55,7 @@ final class MixerSlider: NSSlider {
     button.bezelStyle = .shadowlessSquare
     button.imagePosition = .imageOnly
     button.imageScaling = .scaleProportionallyUpOrDown
-    button.setButtonType(.momentaryChange)
+    button.setButtonType(.momentaryPushIn)
     button.title = ""
     return button
 }

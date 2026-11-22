@@ -511,7 +511,7 @@ struct TapControllerTests {
         tap.looksRevoked = true
         rig.controller.pollWatchdog()
         await rig.controller.settle()
-        tap.level = 0.4
+        tap.hearsAudio = true
         rig.controller.pollWatchdog()
         await rig.controller.settle()
         rig.system.processList = [musicProcess(playing: false, devices: [])]
@@ -556,16 +556,6 @@ struct TapControllerTests {
         await rig.controller.settle()
         #expect(old.invalidated)
         #expect(rig.system.liveTaps.map(\.processes) == [[108, 300]])
-    }
-
-    @Test func levelIsScaledByGain() async {
-        let rig = await makeRig()
-        #expect(rig.controller.level(for: music) == nil)
-        let tap = await lowered(rig)
-        tap.level = 0.8
-        #expect(abs((rig.controller.level(for: music) ?? -1) - 0.2) < 0.0001)
-        rig.controller.toggleMute(music)
-        #expect(rig.controller.level(for: music) == 0)
     }
 
     @Test func pollsOnlyWhileTapsExist() async {

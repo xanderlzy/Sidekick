@@ -89,10 +89,8 @@ final class AppTap: TapHandle {
         session.io.gain.store(clamped.bitPattern, ordering: .relaxed)
     }
 
-    var level: Float {
-        guard !invalidated, HostClock.seconds(since: session.io.lastCallback.load(ordering: .relaxed)) < 0.25
-        else { return 0 }
-        return Float(bitPattern: session.io.level.load(ordering: .relaxed))
+    var hearsAudio: Bool {
+        !invalidated && HostClock.seconds(since: session.io.lastNonZero.load(ordering: .relaxed)) < 0.25
     }
 
     func setProcesses(_ ids: [AudioObjectID]) throws {
@@ -168,7 +166,6 @@ final class AppTap: TapHandle {
 /// Crosses between the IO thread and everything else. Atomics only; Float values as bit patterns.
 final class TapIOState: Sendable {
     let gain = Atomic<UInt32>(Float(0).bitPattern)
-    let level = Atomic<UInt32>(Float(0).bitPattern)
     let callbacks = Atomic<UInt64>(0)
     let nonZeroCallbacks = Atomic<UInt64>(0)
     /// Consecutive all-zero input frames; reset to 0 by any non-zero callback.
@@ -184,7 +181,6 @@ final class TapIOState: Sendable {
         let now = mach_continuous_time()
         callbacks.wrappingAdd(1, ordering: .relaxed)
         lastCallback.store(now, ordering: .relaxed)
-        level.store(min(result.peak, 1).bitPattern, ordering: .relaxed)
         if !result.ok { fault.store(true, ordering: .relaxed) }
         if result.nonZero {
             nonZeroCallbacks.wrappingAdd(1, ordering: .relaxed)

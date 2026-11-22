@@ -71,6 +71,13 @@ enum MixerDisplay {
             return order == .orderedSame ? $0.id < $1.id : order == .orderedAscending
         }
     }
+
+    /// The held copy of a row mid-drag: at the slider's value and unmuted (dragging unmutes).
+    static func dragged(_ row: MixerRow, to value: Double) -> MixerRow {
+        MixerRow(id: row.id, name: row.name, isPlaying: row.isPlaying,
+                 setting: AppVolume(volume: min(1, max(0, value)), muted: false),
+                 playsElsewhere: row.playsElsewhere)
+    }
 }
 
 /// A row's icon: the owning app's own icon, read from its bundle on disk, or the globe for Web content.

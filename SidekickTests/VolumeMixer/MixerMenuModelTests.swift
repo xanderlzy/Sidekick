@@ -42,6 +42,14 @@ struct MixerMenuHelperTests {
         #expect(MixerDisplay.rows(rows, holding: held).map(\.id) == ["a", "b", "c"])
     }
 
+    @Test func heldCopyFollowsTheDragAndIsUnmuted() {
+        let muted = MixerRow(id: "a", name: "Alpha", isPlaying: false, setting: AppVolume(volume: 0.4, muted: true),
+                             playsElsewhere: false)
+        let dragged = MixerDisplay.dragged(muted, to: 1)
+        #expect(dragged.setting == AppVolume(volume: 1, muted: false))
+        #expect(dragged.id == "a" && dragged.name == "Alpha")
+    }
+
     @Test func liveRowWinsOverTheHeldCopy() {
         let rows = [row("a", "Alpha", volume: 0.3)]
         let shown = MixerDisplay.rows(rows, holding: row("a", "Alpha", volume: 0.9))
