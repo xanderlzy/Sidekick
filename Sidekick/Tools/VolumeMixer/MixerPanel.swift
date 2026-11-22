@@ -4,7 +4,8 @@ import SwiftUI
 // MARK: - Panel
 
 /// The borderless, non-activating panel that hosts the mixer under its status item.
-/// It never becomes key, so the frontmost app keeps focus; it floats on every Space and over full screen.
+/// It becomes key without activating Sidekick (like Spotlight or Control Center): the frontmost app stays
+/// active, and key returns to its window when the panel orders out. It floats on every Space and over full screen.
 final class MixerPanel: NSPanel {
     /// The card's width; the window adds transparent margins around it for the shadow.
     static let cardWidth: CGFloat = 320
@@ -25,7 +26,7 @@ final class MixerPanel: NSPanel {
         animationBehavior = .none
     }
 
-    override var canBecomeKey: Bool { false }
+    override var canBecomeKey: Bool { true }
     override var canBecomeMain: Bool { false }
 
     /// The window size for a card of `card` size.
@@ -149,6 +150,7 @@ struct MixerRoot: View {
             .shadow(color: .black.opacity(0.16), radius: 14, y: 8)
             .scaleEffect(model.isShown ? 1 : 0.96, anchor: .top)
             .opacity(model.isShown ? 1 : 0)
+            .focusEffectDisabled()
             .padding(EdgeInsets(top: MixerPanel.margin.top, leading: MixerPanel.margin.left,
                                 bottom: MixerPanel.margin.bottom, trailing: MixerPanel.margin.right))
             .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)

@@ -12,10 +12,9 @@ protocol MixerMenuBar: AnyObject {
 /// A `speaker.wave.2` status item that toggles the mixer panel underneath it.
 ///
 /// While the panel is open (and only then) it holds: a global mouse monitor (click in another app
-/// closes), a local mouse monitor (click in another Sidekick window closes), local and global key
-/// monitors for Esc (the panel never becomes key, so Esc reaches it only this way; the global one
-/// needs Accessibility and otherwise stays quiet), Space and screen observers, and the 20 Hz level
-/// sampler. Closing removes all of them; `remove()` closes and drops the item.
+/// closes), a local mouse monitor (click in another Sidekick window closes), a local key monitor for
+/// Esc (the non-activating panel is key while open, so no Accessibility is needed), Space and screen
+/// observers, and the 20 Hz level sampler. Closing removes all of them; `remove()` closes and drops the item.
 @MainActor
 final class MixerStatusItem: NSObject, MixerMenuBar {
     private let controller: TapController
@@ -94,6 +93,7 @@ final class MixerStatusItem: NSObject, MixerMenuBar {
         panel.contentView?.layoutSubtreeIfNeeded()
         panel.ignoresMouseEvents = false
         panel.orderFrontRegardless()
+        panel.makeKey() // non-activating: the frontmost app stays active
         installMonitors()
         startSampling()
         // Pressed look while open (after the click is handled, or the press clears it). macOS 27.2 draws
@@ -193,12 +193,14 @@ final class MixerStatusItem: NSObject, MixerMenuBar {
         Task { @MainActor [weak self] in
             let state = await SystemAudioPermission.request()
             guard let self else { return }
+            self.model.requestingPermission = false
+            // Nothing to show if the tool was turned off while the request ran.
+            guard self.isInstalled else { return }
             if !state.isGranted {
                 self.close()
                 Permissions.openSettings(.systemAudio)
             }
             self.controller.refresh()
-            self.model.requestingPermission = false
         }
     }
 
@@ -234,12 +236,6 @@ final class MixerStatusItem: NSObject, MixerMenuBar {
             return nil
         }) {
             monitors.append(localKeys)
-        }
-        if let globalKeys = NSEvent.addGlobalMonitorForEvents(matching: .keyDown, handler: { [weak self] event in
-            let isEscape = event.keyCode == Self.escape
-            MainActor.assumeIsolated { if isEscape { self?.close() } }
-        }) {
-            monitors.append(globalKeys)
         }
         let center = NSWorkspace.shared.notificationCenter
         observers.append(center.addObserver(forName: NSWorkspace.activeSpaceDidChangeNotification, object: nil,
