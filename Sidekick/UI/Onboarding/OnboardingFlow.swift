@@ -1,11 +1,11 @@
 enum OnboardingStep: String, Sendable {
-    case welcome, chooseTools, microphone, accessibility
+    case welcome, chooseTools, microphone, accessibility, systemAudio
     case speechModel, appleIntelligence, globeKey, practice, tryIt, finish
 }
 
 extension OnboardingStep {
     /// Steps that ask for a system permission (always re-checked), as opposed to one-time tool setup.
-    var isPermission: Bool { self == .microphone || self == .accessibility }
+    var isPermission: Bool { self == .microphone || self == .accessibility || self == .systemAudio }
 }
 
 /// Pure step sequencing for first-run setup and per-tool setup.
@@ -38,6 +38,7 @@ struct OnboardingFlow {
         switch step {
         case .microphone: Permissions.microphone
         case .accessibility: Permissions.accessibility
+        case .systemAudio: Permissions.systemAudio
         default: false
         }
     }

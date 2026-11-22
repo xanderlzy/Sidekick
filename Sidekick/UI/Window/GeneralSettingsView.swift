@@ -64,6 +64,10 @@ struct GeneralSettingsView: View {
             Permissions.openSettings(.accessibility)
         case .speech:
             SFSpeechRecognizer.requestAuthorization { _ in }
+        case .systemAudio:
+            Task {
+                if await SystemAudioPermission.request() != .granted { Permissions.openSettings(.systemAudio) }
+            }
         }
     }
 }

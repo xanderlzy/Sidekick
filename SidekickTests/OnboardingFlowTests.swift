@@ -10,6 +10,18 @@ struct OnboardingFlowTests {
         FakeTool(id: "dictation", setupSteps: [.microphone, .accessibility, .speechModel])
     }
 
+    @Test func systemAudioIsPermissionStep() {
+        #expect(OnboardingStep.systemAudio.isPermission)
+        #expect(Permission.allCases.contains(.systemAudio))
+    }
+
+    @Test func setupStepsForMixerOnlyAsksSystemAudio() {
+        let mixer = FakeTool(id: "mixer", setupSteps: [.systemAudio])
+        #expect(OnboardingFlow.setupSteps(for: mixer, satisfied: none) == [.systemAudio])
+        #expect(OnboardingFlow.setupSteps(for: mixer, satisfied: { $0 == .systemAudio }).isEmpty)
+        #expect(OnboardingFlow.steps(tools: [mixer], satisfied: none) == [.welcome, .chooseTools, .systemAudio, .finish])
+    }
+
     @Test func singleToolSteps() {
         #expect(OnboardingFlow.steps(tools: [listener()], satisfied: none)
                 == [.welcome, .chooseTools, .microphone, .finish])

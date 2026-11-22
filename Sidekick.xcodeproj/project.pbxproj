@@ -72,6 +72,7 @@
 		661F1D146762334651C90B4C /* StatsStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = C32657C9139026CB6740FEA0 /* StatsStore.swift */; };
 		6706163E24ED9F930AAD5BE8 /* DragClassifierTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 73CA2BC0E7450085AEBD8D70 /* DragClassifierTests.swift */; };
 		6A8F31704C026CB7CA9E20FF /* Permissions.swift in Sources */ = {isa = PBXBuildFile; fileRef = 30DC85479ACE135EE641A878 /* Permissions.swift */; };
+		6CABB72E502D1F749E04A3E7 /* SystemAudioStep.swift in Sources */ = {isa = PBXBuildFile; fileRef = CB2CB33E33900CC32375D9AD /* SystemAudioStep.swift */; };
 		6E5B3F47122040B083F5638C /* AXWindowTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 51BDFCDF671258A0D3007E9D /* AXWindowTests.swift */; };
 		708FC26F7B38CA8BBB4CB176 /* DictationControllerTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5AF713BED9E2C0D376BFEA05 /* DictationControllerTests.swift */; };
 		72B37DFE12F920C833C55819 /* TryItStep.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3009EDC0CC7402C1B5CD597E /* TryItStep.swift */; };
@@ -267,6 +268,7 @@
 		C99038C92C724FE32B9ADBBA /* WhisperTranscriberTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WhisperTranscriberTests.swift; sourceTree = "<group>"; };
 		CA102A231BC2E15195A784D7 /* ToolRegistry.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ToolRegistry.swift; sourceTree = "<group>"; };
 		CB156CFB55F9B0B121539779 /* DictationController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DictationController.swift; sourceTree = "<group>"; };
+		CB2CB33E33900CC32375D9AD /* SystemAudioStep.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SystemAudioStep.swift; sourceTree = "<group>"; };
 		CCDE8C3465CCD71F3C2F10E0 /* DictationTool.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DictationTool.swift; sourceTree = "<group>"; };
 		CD376CD249438490D5F90B6B /* Tool.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Tool.swift; sourceTree = "<group>"; };
 		CE94BA95293CF271781E3592 /* Transcriber.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Transcriber.swift; sourceTree = "<group>"; };
@@ -345,6 +347,7 @@
 				052A4D87B4CD5EFB49888B91 /* AccessibilityStep.swift */,
 				9660F3D8812E077BFC378A2A /* ChooseToolsStep.swift */,
 				F76FB3B9D5616476CB5FC04D /* FinishStep.swift */,
+				CB2CB33E33900CC32375D9AD /* SystemAudioStep.swift */,
 				F62D7B8D8E3C3AD83969EF70 /* WelcomeStep.swift */,
 			);
 			path = Steps;
@@ -842,6 +845,7 @@
 				2B681CF264FE0CDA86311F2A /* SpeechModelStep.swift in Sources */,
 				661F1D146762334651C90B4C /* StatsStore.swift in Sources */,
 				1F57951BCA59C0453495FE14 /* SystemAudioPermission.swift in Sources */,
+				6CABB72E502D1F749E04A3E7 /* SystemAudioStep.swift in Sources */,
 				BA2B118BB942ED23222DFD60 /* SystemTiling.swift in Sources */,
 				7EBB538E1E4329DCF943C119 /* TapController.swift in Sources */,
 				7921D0E79585FC1876CB023C /* TapLayout.swift in Sources */,
