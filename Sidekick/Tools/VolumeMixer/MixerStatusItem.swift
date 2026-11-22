@@ -1,5 +1,5 @@
 import AppKit
-import SwiftUI
+import Observation
 
 /// The mixer's own menu bar presence. Installed only while the tool is on.
 @MainActor
@@ -9,28 +9,29 @@ protocol MixerMenuBar: AnyObject {
     var isInstalled: Bool { get }
 }
 
-/// A `speaker.wave.2` status item that toggles the mixer panel underneath it.
+/// A `speaker.wave.2` status item with a native `NSMenu`: the same material, font, highlight, Esc and
+/// click-outside behaviour as Sidekick's own menu and Apple's Sound menu.
 ///
-/// While the panel is open (and only then) it holds: a global mouse monitor (click in another app
-/// closes), a local mouse monitor (click in another Sidekick window closes), a local key monitor for
-/// Esc (the non-activating panel is key while open, so no Accessibility is needed), Space and screen
-/// observers, and the 20 Hz level sampler. Closing removes all of them; `remove()` closes and drops the item.
+/// While the menu is open (and only then) it observes the controller and the system volume and updates
+/// the open menu's items in place. Menus track in `.eventTracking` run loop mode, so each observation hop
+/// runs in `.common` modes. Closing stops the observation; `remove()` closes the menu and drops the item.
 @MainActor
-final class MixerStatusItem: NSObject, MixerMenuBar {
+final class MixerStatusItem: NSObject, MixerMenuBar, NSMenuDelegate {
     private let controller: TapController
     private let systemVolume: SystemVolume
     private let openSettings: @MainActor () -> Void
-    private let model = MixerPanelModel()
 
     private var item: NSStatusItem?
-    private var panel: MixerPanel?
-    private var monitors: [Any] = []
-    private var observers: [NSObjectProtocol] = []
-    private var sampler: Task<Void, Never>?
-    private var hideWork: DispatchWorkItem?
-    private var shrinkWork: DispatchWorkItem?
-    private var cardSize = CGSize(width: MixerPanel.cardWidth, height: 200)
+    private var menu: NSMenu?
     private(set) var isOpen = false
+    /// Bumped on close and remove, so a queued observation hop from an earlier opening does nothing.
+    private var generation = 0
+    /// The menu's items by key, reused across updates so a slider under the pointer is never replaced.
+    private var items: [String: NSMenuItem] = [:]
+    private var icons: [String: NSImage] = [:]
+    /// The row being dragged, kept listed until the pointer lifts (see `MixerDisplay.rows(_:holding:)`).
+    private var held: MixerRow?
+    private var requestingPermission = false
 
     var isInstalled: Bool { item != nil }
 
@@ -49,248 +50,223 @@ final class MixerStatusItem: NSObject, MixerMenuBar {
             let image = NSImage(systemSymbolName: "speaker.wave.2", accessibilityDescription: "Volume Mixer")
             image?.isTemplate = true
             button.image = image
-            button.target = self
-            button.action = #selector(toggle(_:))
-            button.sendAction(on: [.leftMouseDown, .rightMouseDown])
             button.setAccessibilityLabel("Volume Mixer")
         }
+        let menu = NSMenu(title: "Volume Mixer")
+        menu.autoenablesItems = false
+        menu.minimumWidth = MixerMenuMetrics.width
+        menu.delegate = self
+        item.menu = menu
         self.item = item
+        self.menu = menu
     }
 
-    /// Closes the panel at once, removes every monitor, stops the sampler and drops the item. Idempotent.
+    /// Closes the menu at once, stops every update and drops the item. Idempotent.
     func remove() {
-        close(animated: false)
-        hideWork?.cancel()
-        hideWork = nil
-        shrinkWork?.cancel()
-        shrinkWork = nil
-        panel?.orderOut(nil)
-        panel?.contentView = nil
-        panel = nil
-        if let item { NSStatusBar.system.removeStatusItem(item) }
-        item = nil
-    }
-
-    // MARK: Open / close
-
-    @objc private func toggle(_ sender: Any?) {
-        isOpen ? close() : open()
-    }
-
-    private func open() {
-        guard let button = item?.button, let itemWindow = button.window, !isOpen else { return }
-        isOpen = true
-        hideWork?.cancel()
-        hideWork = nil
-        controller.refresh()
-        sampleLevels()
-
-        let panel = self.panel ?? makePanel()
-        self.panel = panel
-        model.isShown = false
-        place(panel, itemFrame: itemWindow.frame, screen: itemWindow.screen)
-        // Lay out now so the window takes the card's real height before it shows.
-        panel.contentView?.layoutSubtreeIfNeeded()
-        panel.ignoresMouseEvents = false
-        panel.orderFrontRegardless()
-        panel.makeKey() // non-activating: the frontmost app stays active
-        installMonitors()
-        startSampling()
-        // Pressed look while open (after the click is handled, or the press clears it). macOS 27.2 draws
-        // no highlight for it; kept because it is the documented call and costs nothing.
-        DispatchQueue.main.async { [weak self] in
-            guard let self, self.isOpen else { return }
-            self.item?.button?.highlight(true)
-        }
-        // One turn later, so the panel lays out at rest before it springs open.
-        DispatchQueue.main.async { [weak self] in
-            guard let self, self.isOpen else { return }
-            withAnimation(Motion.snappy) { self.model.isShown = true }
-        }
-    }
-
-    private func close(animated: Bool = true) {
-        guard isOpen else { return }
+        generation += 1
+        if isOpen { menu?.cancelTrackingWithoutAnimation() }
         isOpen = false
-        removeMonitors()
-        stopSampling()
-        item?.button?.highlight(false)
-        guard let panel else { return }
-        panel.ignoresMouseEvents = true
-        guard animated else {
-            model.isShown = false
-            panel.orderOut(nil)
-            return
+        held = nil
+        menu?.delegate = nil
+        menu?.removeAllItems()
+        items.removeAll()
+        icons.removeAll()
+        if let item {
+            item.menu = nil
+            NSStatusBar.system.removeStatusItem(item)
         }
-        withAnimation(Motion.snappy) { model.isShown = false }
-        let work = DispatchWorkItem { [weak self] in
-            guard let self, !self.isOpen else { return }
-            self.panel?.orderOut(nil)
-        }
-        hideWork = work
-        DispatchQueue.main.asyncAfter(deadline: .now() + 0.25, execute: work)
+        item = nil
+        menu = nil
     }
 
-    private func makePanel() -> MixerPanel {
-        let panel = MixerPanel()
-        let actions = MixerActions(
-            openSettings: { [weak self] in
-                self?.close()
-                self?.openSettings()
-            },
-            grantPermission: { [weak self] in self?.grantPermission() })
-        let root = MixerRoot(controller: controller, systemVolume: systemVolume, model: model, actions: actions,
-                             onSize: { [weak self] size in self?.cardResized(size) })
-        let host = FirstMouseHostingView(rootView: root)
-        host.sizingOptions = []
-        panel.contentView = host
-        return panel
+    // MARK: NSMenuDelegate
+
+    func menuWillOpen(_ menu: NSMenu) {
+        guard menu === self.menu, isInstalled else { return }
+        isOpen = true
+        generation += 1
+        controller.refresh()
+        update()
+        observe(generation)
     }
 
-    /// Positions the panel under the item, on the item's screen.
-    private func place(_ panel: MixerPanel, itemFrame: NSRect, screen: NSScreen?) {
-        let size = MixerPanel.windowSize(for: cardSize)
-        let visible = (screen ?? NSScreen.main)?.visibleFrame ?? itemFrame
-        // The margins are transparent; line the card (not the window) up under the menu bar.
-        let origin = MixerPanelLayout.origin(item: itemFrame, size: size, visible: visible)
-        panel.setFrame(NSRect(origin: origin, size: size), display: false)
+    func menuDidClose(_ menu: NSMenu) {
+        guard menu === self.menu, isOpen else { return }
+        isOpen = false
+        generation += 1
+        held = nil
     }
 
-    /// The window follows the card, top edge fixed. It grows at once (the card animates inside it) and
-    /// shrinks once the card's own animation has settled, so nothing is clipped mid-spring.
-    private func cardResized(_ size: CGSize) {
-        guard size.height > 0, size != cardSize else { return }
-        cardSize = size
-        shrinkWork?.cancel()
-        shrinkWork = nil
-        guard let panel else { return }
-        let target = MixerPanel.windowSize(for: size)
-        // Grow at once; shrink at once too while the card isn't on screen yet (no spring to wait for).
-        if target.height >= panel.frame.height || !model.isShown {
-            resize(panel, to: target)
-        } else {
-            let work = DispatchWorkItem { [weak self] in
-                guard let self, let panel = self.panel else { return }
-                self.resize(panel, to: MixerPanel.windowSize(for: self.cardSize))
+    // MARK: Live updates
+
+    /// Re-arms on every change; the hop runs in `.common` modes so it fires while the menu tracks.
+    private func observe(_ generation: Int) {
+        withObservationTracking {
+            _ = controller.rows
+            _ = controller.needsPermission
+            _ = controller.notice
+            _ = systemVolume.deviceName
+            _ = systemVolume.volume
+            _ = systemVolume.muted
+            _ = systemVolume.canMute
+        } onChange: { [weak self] in
+            RunLoop.main.perform(inModes: [.common]) { [weak self] in
+                MainActor.assumeIsolated { self?.changed(generation) }
             }
-            shrinkWork = work
-            DispatchQueue.main.asyncAfter(deadline: .now() + 0.45, execute: work)
         }
     }
 
-    private func resize(_ panel: MixerPanel, to size: NSSize) {
-        let top = panel.frame.maxY
-        panel.setFrame(NSRect(x: panel.frame.minX, y: top - size.height, width: size.width, height: size.height),
-                       display: true)
+    private func changed(_ generation: Int) {
+        guard isOpen, generation == self.generation else { return }
+        update()
+        observe(generation)
     }
 
-    // MARK: Permission
+    /// Brings the menu's items in line with the current state, reusing items (and their views) by key.
+    private func update() {
+        guard let menu else { return }
+        let rows = MixerDisplay.rows(controller.rows, holding: held)
+        let entries = MixerMenuModel.entries(rows: rows, needsPermission: controller.needsPermission,
+                                             notice: controller.notice, deviceName: systemVolume.deviceName)
+        var next: [String: NSMenuItem] = [:]
+        var ordered: [NSMenuItem] = []
+        var separators = 0
+        for entry in entries {
+            let key: String
+            switch entry {
+            case .header(let title): key = "header:\(title)"
+            case .system: key = "system"
+            case .deviceCaption(let name): key = "device:\(name):\(systemVolume.volume == nil)"
+            case .separator:
+                key = "separator:\(separators)"
+                separators += 1
+            case .sectionHeader(let title): key = "section:\(title)"
+            case .app(let row): key = "app:\(row.id):\(row.playsElsewhere)"
+            case .caption(let text): key = "caption:\(text)"
+            case .action(let title): key = "action:\(title)"
+            }
+            let item = items[key] ?? makeItem(entry)
+            configure(item, entry)
+            next[key] = item
+            ordered.append(item)
+        }
+        items = next
+        apply(ordered, to: menu)
+    }
+
+    /// Removes, inserts and moves only what changed, so the open menu keeps its other items (and any drag).
+    private func apply(_ ordered: [NSMenuItem], to menu: NSMenu) {
+        let wanted = Set(ordered.map(ObjectIdentifier.init))
+        for item in menu.items where !wanted.contains(ObjectIdentifier(item)) { menu.removeItem(item) }
+        for (index, item) in ordered.enumerated() {
+            if index < menu.numberOfItems, menu.item(at: index) === item { continue }
+            if item.menu === menu { menu.removeItem(item) }
+            menu.insertItem(item, at: index)
+        }
+    }
+
+    // MARK: Items
+
+    private func makeItem(_ entry: MixerMenuEntry) -> NSMenuItem {
+        let m = MixerMenuMetrics.self
+        switch entry {
+        case .header(let title):
+            return viewItem(MixerHeaderView(title: title))
+        case .system:
+            let view = MixerSystemRowView()
+            view.onToggleMute = { [weak self] in self?.systemVolume.toggleMute() }
+            view.onChange = { [weak self] value in
+                guard let self else { return }
+                if self.systemVolume.muted { self.systemVolume.toggleMute() }
+                self.systemVolume.setVolume(value)
+            }
+            return viewItem(view)
+        case .deviceCaption(let name):
+            let text = systemVolume.volume == nil ? "\(name)\n\(MixerMenuModel.ownVolume)" : name
+            return viewItem(MixerCaptionView(text: text, font: m.captionFont, leading: m.textX, top: 0, bottom: 4))
+        case .separator:
+            return .separator()
+        case .sectionHeader(let title):
+            return .sectionHeader(title: title)
+        case .app(let row):
+            let view = MixerAppRowView(playsElsewhere: row.playsElsewhere)
+            let id = row.id
+            view.onToggleMute = { [weak self] in self?.controller.toggleMute(id) }
+            view.onChange = { [weak self] value in self?.slide(id, to: value) }
+            view.onEnded = { [weak self] in self?.endSlide(id) }
+            return viewItem(view)
+        case .caption(let text):
+            return viewItem(MixerCaptionView(text: text, font: m.menuFont, leading: m.inset, top: 3, bottom: 3))
+        case .action(let title):
+            let item = NSMenuItem(title: title, action: #selector(choose(_:)), keyEquivalent: "")
+            item.target = self
+            item.representedObject = title
+            return item
+        }
+    }
+
+    private func viewItem(_ view: NSView) -> NSMenuItem {
+        let item = NSMenuItem()
+        item.view = view
+        return item
+    }
+
+    private func configure(_ item: NSMenuItem, _ entry: MixerMenuEntry) {
+        switch entry {
+        case .system:
+            (item.view as? MixerSystemRowView)?.configure(volume: systemVolume.volume, muted: systemVolume.muted,
+                                                          canMute: systemVolume.canMute)
+        case .app(let row):
+            (item.view as? MixerAppRowView)?.configure(row: row, image: icon(for: row.id))
+        case .action(let title) where title == MixerMenuModel.openSettingsTitle:
+            item.isEnabled = !requestingPermission
+        default:
+            break
+        }
+    }
+
+    private func icon(for key: String) -> NSImage? {
+        if let cached = icons[key] { return cached }
+        guard let image = MixerAppIcon.image(for: key, size: MixerMenuMetrics.icon) else { return nil }
+        icons[key] = image
+        return image
+    }
+
+    // MARK: Actions
+
+    private func slide(_ key: String, to value: Double) {
+        if held?.id != key { held = controller.rows.first { $0.id == key } }
+        controller.setVolume(value, for: key)
+        // Moving a muted app's slider unmutes it.
+        if controller.rows.first(where: { $0.id == key })?.setting.muted == true { controller.toggleMute(key) }
+    }
+
+    private func endSlide(_ key: String) {
+        guard held?.id == key else { return }
+        held = nil
+        if isOpen { update() }
+    }
+
+    @objc private func choose(_ sender: NSMenuItem) {
+        switch sender.representedObject as? String {
+        case MixerMenuModel.settingsTitle: openSettings()
+        case MixerMenuModel.openSettingsTitle: grantPermission()
+        default: break
+        }
+    }
 
     /// Grant: ask (may show the system prompt); if that didn't grant, open the Privacy pane. Then refresh.
     private func grantPermission() {
-        guard !model.requestingPermission else { return }
-        model.requestingPermission = true
+        guard isInstalled, !requestingPermission else { return }
+        requestingPermission = true
         Task { @MainActor [weak self] in
             let state = await SystemAudioPermission.request()
             guard let self else { return }
-            self.model.requestingPermission = false
-            // Nothing to show if the tool was turned off while the request ran.
+            self.requestingPermission = false
+            // Nothing to do if the tool was turned off while the request ran.
             guard self.isInstalled else { return }
-            if !state.isGranted {
-                self.close()
-                Permissions.openSettings(.systemAudio)
-            }
+            if !state.isGranted { Permissions.openSettings(.systemAudio) }
             self.controller.refresh()
         }
-    }
-
-    // MARK: Monitors
-
-    private func installMonitors() {
-        removeMonitors()
-        let clicks: NSEvent.EventTypeMask = [.leftMouseDown, .rightMouseDown, .otherMouseDown]
-        if let global = NSEvent.addGlobalMonitorForEvents(matching: clicks, handler: { [weak self] _ in
-            MainActor.assumeIsolated {
-                // The menu bar delivers a click on our own item here too; its action toggles instead.
-                guard let self, !self.isOverItem(NSEvent.mouseLocation) else { return }
-                self.close()
-            }
-        }) {
-            monitors.append(global)
-        }
-        if let local = NSEvent.addLocalMonitorForEvents(matching: clicks, handler: { [weak self] event in
-            let window = event.window
-            MainActor.assumeIsolated {
-                // The panel handles its own clicks; the item's own click toggles.
-                guard let self, window !== self.panel, window !== self.item?.button?.window,
-                      !self.isOverItem(NSEvent.mouseLocation) else { return }
-                self.close()
-            }
-            return event
-        }) {
-            monitors.append(local)
-        }
-        if let localKeys = NSEvent.addLocalMonitorForEvents(matching: .keyDown, handler: { [weak self] event in
-            guard event.keyCode == Self.escape else { return event }
-            MainActor.assumeIsolated { self?.close() }
-            return nil
-        }) {
-            monitors.append(localKeys)
-        }
-        let center = NSWorkspace.shared.notificationCenter
-        observers.append(center.addObserver(forName: NSWorkspace.activeSpaceDidChangeNotification, object: nil,
-                                            queue: .main) { [weak self] _ in
-            MainActor.assumeIsolated { self?.close() }
-        })
-        observers.append(NotificationCenter.default.addObserver(
-            forName: NSApplication.didChangeScreenParametersNotification, object: nil, queue: .main
-        ) { [weak self] _ in
-            MainActor.assumeIsolated { self?.close(animated: false) }
-        })
-    }
-
-    private func isOverItem(_ point: NSPoint) -> Bool {
-        guard let frame = item?.button?.window?.frame else { return false }
-        return frame.contains(point)
-    }
-
-    private func removeMonitors() {
-        for monitor in monitors { NSEvent.removeMonitor(monitor) }
-        monitors.removeAll()
-        for observer in observers {
-            NSWorkspace.shared.notificationCenter.removeObserver(observer)
-            NotificationCenter.default.removeObserver(observer)
-        }
-        observers.removeAll()
-    }
-
-    private static let escape: UInt16 = 53
-
-    // MARK: Levels
-
-    private func startSampling() {
-        sampler?.cancel()
-        sampler = Task { @MainActor [weak self] in
-            while !Task.isCancelled {
-                try? await Task.sleep(for: .milliseconds(50))
-                guard let self, !Task.isCancelled else { return }
-                self.sampleLevels()
-            }
-        }
-    }
-
-    private func stopSampling() {
-        sampler?.cancel()
-        sampler = nil
-    }
-
-    /// Tapped rows only: `level(for:)` is nil for untapped apps, which show the playing dots instead.
-    private func sampleLevels() {
-        var next: [String: Float] = [:]
-        for row in controller.rows {
-            guard let level = controller.level(for: row.id) else { continue }
-            next[row.id] = LevelBarsMath.smoothed(previous: model.levels[row.id] ?? 0, next: level)
-        }
-        if next != model.levels { model.levels = next }
     }
 }
