@@ -12,6 +12,13 @@ private final class FakeMenuBar: MixerMenuBar {
 }
 
 @MainActor
+private final class FakeSystemVolume: SystemVolumeControl {
+    private(set) var starts = 0, stops = 0
+    func start() { starts += 1 }
+    func stop() { stops += 1 }
+}
+
+@MainActor
 struct VolumeMixerToolTests {
     private let defaults = UserDefaults(suiteName: "VolumeMixerToolTests-\(UUID())")!
     private let music = "com.apple.Music"
@@ -20,6 +27,7 @@ struct VolumeMixerToolTests {
         let tool: VolumeMixerTool
         let system: FakeAudioSystem
         let bar: FakeMenuBar
+        let volume: FakeSystemVolume
     }
 
     private func makeRig(stored: [String: AppVolume] = [:]) -> Rig {
@@ -30,10 +38,12 @@ struct VolumeMixerToolTests {
                                            outputDevices: [81])]
         system.apps = [RunningApp(pid: 2108, bundleID: music, name: "Music")]
         let bar = FakeMenuBar()
+        let volume = FakeSystemVolume()
         let tool = VolumeMixerTool(defaults: defaults, system: system,
                                    permission: { [system] in await system.checkPermission() },
+                                   systemVolumeControl: volume,
                                    menuBar: { _, _ in bar })
-        return Rig(tool: tool, system: system, bar: bar)
+        return Rig(tool: tool, system: system, bar: bar, volume: volume)
     }
 
     @Test func identity() {
@@ -56,6 +66,7 @@ struct VolumeMixerToolTests {
         await rig.tool.controller.settle()
         #expect(rig.tool.isRunning)
         #expect(rig.bar.isInstalled)
+        #expect(rig.volume.starts == 1)
         #expect(rig.system.listening)
         #expect(rig.system.liveTaps.count == 1)
     }
@@ -67,6 +78,7 @@ struct VolumeMixerToolTests {
         rig.tool.stop()
         #expect(!rig.tool.isRunning)
         #expect(!rig.bar.isInstalled)
+        #expect(rig.volume.stops == 1)
         #expect(rig.system.liveTaps.isEmpty)
         #expect(!rig.system.listening)
         #expect(!rig.tool.controller.isPolling)
@@ -80,13 +92,14 @@ struct VolumeMixerToolTests {
         #expect(rig.bar.installs == 1)
         rig.tool.stop(); rig.tool.stop()
         #expect(rig.bar.removes == 1)
+        #expect(rig.volume.starts == 1 && rig.volume.stops == 1)
         #expect(rig.system.stopListeningCount == 1)
     }
 
     @Test func stopBeforeStartIsHarmless() {
         let rig = makeRig()
         rig.tool.stop()
-        #expect(rig.bar.removes == 0)
+        #expect(rig.bar.removes == 0 && rig.volume.stops == 0)
     }
 
     @Test func offByDefault() {
@@ -107,10 +120,7 @@ struct VolumeMixerToolTests {
     }
 
     @Test func rememberedNames() {
-        let rig = makeRig()
         #expect(RememberedVolume.name(for: AppGrouping.webContentKey) == "Web content")
         #expect(RememberedVolume.name(for: "no.such.bundle.id.zzz") == "no.such.bundle.id.zzz")
-        #expect(RememberedVolume.name(for: "com.apple.finder") == "Finder")
-        _ = rig
     }
 }

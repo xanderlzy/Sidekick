@@ -1,5 +1,14 @@
 import SwiftUI
 
+/// The part of `SystemVolume` the tool drives, so tests can stand in for the real listeners.
+@MainActor
+protocol SystemVolumeControl: AnyObject {
+    func start()
+    func stop()
+}
+
+extension SystemVolume: SystemVolumeControl {}
+
 /// Per-app volume from the menu bar. Off means off: no status item, no taps, no listeners.
 @MainActor
 final class VolumeMixerTool: Tool {
@@ -14,12 +23,13 @@ final class VolumeMixerTool: Tool {
     private(set) var isRunning = false
     let store: MixerSettingsStore
     let controller: TapController
-    private let systemVolume: SystemVolume
+    private let systemVolume: any SystemVolumeControl
     private let menuBar: any MixerMenuBar
 
     init(defaults: UserDefaults = .standard,
          system: (any AudioSystem)? = nil,
          permission: TapController.PermissionCheck? = nil,
+         systemVolumeControl: (any SystemVolumeControl)? = nil,
          menuBar: ((TapController, SystemVolume) -> any MixerMenuBar)? = nil) {
         let store = MixerSettingsStore(defaults: defaults)
         let system = system ?? CoreAudioSystem()
@@ -28,12 +38,12 @@ final class VolumeMixerTool: Tool {
         } else {
             TapController(system: system, store: store)
         }
-        let systemVolume = SystemVolume()
+        let panelVolume = SystemVolume()
         self.store = store
         self.controller = controller
-        self.systemVolume = systemVolume
-        self.menuBar = menuBar?(controller, systemVolume) ?? MixerStatusItem(
-            controller: controller, systemVolume: systemVolume,
+        self.systemVolume = systemVolumeControl ?? panelVolume
+        self.menuBar = menuBar?(controller, panelVolume) ?? MixerStatusItem(
+            controller: controller, systemVolume: panelVolume,
             openSettings: { AppEnvironment.shared.window.show(.page(tool: "volumeMixer", page: "settings")) })
     }
 
