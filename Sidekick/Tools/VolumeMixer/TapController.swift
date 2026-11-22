@@ -58,11 +58,13 @@ final class TapController {
         let processes: Set<AudioObjectID>
     }
 
-    /// Processes of a rebuilt key that may still report the device the old tap was on.
+    /// Processes of a rebuilt key that may still report the device the old tap was on. Only time
+    /// spent outputting counts toward `lagWindow`: a paused app can keep its old `Devices` until it
+    /// restarts IO, and releasing it then would make it play at full volume when resumed.
     private struct Lag {
         let device: AudioDeviceID
         var processes: Set<AudioObjectID>
-        let since: Date
+        var runningSince: [AudioObjectID: Date] = [:]
     }
 
     /// What a reconcile decides from. An identical input after a completed reconcile is a no-op.
@@ -95,6 +97,8 @@ final class TapController {
     @ObservationIgnored private var faultedOn: [String: AudioDeviceID] = [:]
     @ObservationIgnored private var flaps: [String: Int] = [:]
     @ObservationIgnored private var lagging: [String: Lag] = [:]
+    /// Keys whose lag just expired; their "plays elsewhere" release isn't a flap.
+    @ObservationIgnored private var lagExpired: Set<String> = []
     @ObservationIgnored private var unknownRetry = UnknownRetry.none
     @ObservationIgnored private var polls = 0
 
@@ -155,6 +159,7 @@ final class TapController {
         faultedOn.removeAll()
         flaps.removeAll()
         lagging.removeAll()
+        lagExpired.removeAll()
         unknownRetry = .none
         reconcileRequested = false
         forceReconcile = false
@@ -328,9 +333,10 @@ final class TapController {
             flaps[key] = nil
         }
         for key in wanted.keys.sorted() {
-            // Each step can await; re-read what's wanted so a change made meanwhile wins.
-            guard generation == gen, !needsPermission else { return }
-            guard let ids = targets()[key], let device = defaultOutput else { continue }
+            // Each step can await; re-read what's wanted so a change made meanwhile wins. A skipped
+            // or aborted step means this pass didn't fully apply `input`, so don't dedupe against it.
+            guard generation == gen, !needsPermission else { lastInput = nil; return }
+            guard let ids = targets()[key], let device = defaultOutput else { lastInput = nil; continue }
             await reconcile(key, processes: ids, device: device, gen: gen)
         }
     }
@@ -378,13 +384,16 @@ final class TapController {
                 guard targets()[key] != nil else {
                     // No longer wanted (e.g. back to 100%); the queued re-run releases the old one.
                     handle.invalidate()
+                    lastInput = nil
                     return
                 }
                 handle.setGain(store.setting(for: key).gain)
                 old?.handle.invalidate()
                 taps[key] = ActiveTap(handle: handle, processes: ids, device: device, createdAt: now())
+                lagExpired.remove(key)
                 if let old, old.device != device {
-                    lagging[key] = Lag(device: old.device, processes: Set(ids), since: now())
+                    lagging[key] = Lag(device: old.device, processes: Set(ids))
+                    pruneLagging()
                 }
                 acknowledged.remove(key)
                 failed[key] = nil
@@ -428,6 +437,7 @@ final class TapController {
         let date = now()
         for (key, tap) in taps {
             if tap.handle.level > 0 { acknowledged.remove(key) }
+            if date.timeIntervalSince(tap.createdAt) >= Self.flapWindow { flaps[key] = nil }
             guard tap.handle.hasFault else {
                 if date.timeIntervalSince(tap.createdAt) >= Self.healthyAfter { faultedOn[key] = nil }
                 continue
@@ -442,7 +452,9 @@ final class TapController {
             }
         }
         if !rebuildKeys.isEmpty { requestForcedReconcile() }
-        if lagging.contains(where: { date.timeIntervalSince($0.value.since) >= Self.lagWindow }) {
+        if lagging.values.contains(where: { lag in
+            lag.runningSince.values.contains { date.timeIntervalSince($0) >= Self.lagWindow }
+        }) {
             pruneLagging()
             updateElsewhere()
             requestForcedReconcile()
@@ -499,12 +511,15 @@ final class TapController {
         rebuildKeys.remove(key)
         acknowledged.remove(key)
         lagging[key] = nil
+        let afterLagExpiry = lagExpired.remove(key) != nil
         // Flap breaker: released for "plays elsewhere" right after it was created, more than once
         // (e.g. a device report that includes our own aggregate in some form we don't strip).
-        if reason == .unwanted, elsewhere.contains(key),
+        // A release because a lag ran out is a real "pinned to the old device", not a flap.
+        if reason == .unwanted, elsewhere.contains(key), !afterLagExpiry,
            now().timeIntervalSince(tap.createdAt) < Self.flapWindow {
             flaps[key, default: 0] += 1
             if flaps[key, default: 0] >= Self.flapLimit {
+                flaps[key] = nil
                 markFailed(key, device: tap.device, processes: tap.processes)
             }
         }
@@ -552,18 +567,34 @@ final class TapController {
         Set(taps.values.map(\.handle.aggregateID)).subtracting([kAudioObjectUnknown])
     }
 
-    /// A lagging process stops lagging once it reports anything other than the previous device
-    /// (or after `lagWindow`, when it's taken at its word).
+    /// A lagging process stops lagging once it reports anything other than the previous device, or
+    /// once it has been outputting to it for `lagWindow` (then it's taken at its word: pinned there).
     private func pruneLagging() {
         let own = ownAggregates()
         let date = now()
-        for (key, lag) in lagging {
+        for (key, original) in lagging {
+            var lag = original
             let current = groups[key] ?? []
-            var kept = lag.processes.filter { id in
-                current.first { $0.objectID == id }.map { $0.outputDevices.filter { !own.contains($0) } == [lag.device] } ?? false
+            for id in original.processes {
+                guard let process = current.first(where: { $0.objectID == id }),
+                      process.outputDevices.filter({ !own.contains($0) }) == [lag.device] else {
+                    lag.processes.remove(id)
+                    lag.runningSince[id] = nil
+                    continue
+                }
+                guard process.isRunningOutput else {
+                    lag.runningSince[id] = nil
+                    continue
+                }
+                let since = lag.runningSince[id] ?? date
+                lag.runningSince[id] = since
+                if date.timeIntervalSince(since) >= Self.lagWindow {
+                    lag.processes.remove(id)
+                    lag.runningSince[id] = nil
+                    lagExpired.insert(key)
+                }
             }
-            if date.timeIntervalSince(lag.since) >= Self.lagWindow { kept.removeAll() }
-            if kept.isEmpty { lagging[key] = nil } else { lagging[key]?.processes = kept }
+            lagging[key] = lag.processes.isEmpty ? nil : lag
         }
     }
 

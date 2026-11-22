@@ -717,4 +717,106 @@ struct TapControllerTests {
         // The pending rebuild ran before the second watchdog round.
         #expect(rig.system.events == ["make 81", "permission", "make 90", "invalidate 1"])
     }
+
+    // MARK: Fix round 2
+
+    @Test func pausedLaggingProcessKeepsTapPastWindow() async {
+        let rig = await makeRig()
+        _ = await lowered(rig)
+        rig.system.processList = [musicProcess(playing: false, devices: [speakers])]
+        rig.system.fireProcessesChanged()
+        await rig.controller.settle()
+        rig.system.defaultDevice = headphones
+        rig.system.fireDefaultDeviceChanged()
+        await rig.controller.settle()
+        let rebuilt = rig.system.liveTaps[0]
+        #expect(rebuilt.device == headphones)
+        // Paused for a long time, still reporting the old device.
+        for _ in 0..<3 {
+            rig.clock.advance(60)
+            rig.controller.pollWatchdog()
+            await rig.controller.settle()
+            rig.system.fireProcessesChanged()
+            await rig.controller.settle()
+        }
+        #expect(!rebuilt.invalidated)
+        #expect(rig.controller.rows.first?.playsElsewhere == false)
+        // Resumes on the new default: same tap, never flagged.
+        rig.system.processList = [musicProcess(devices: [headphones])]
+        rig.system.fireProcessesChanged()
+        await rig.controller.settle()
+        #expect(!rebuilt.invalidated)
+        #expect(rig.system.makeCalls.count == 2)
+        #expect(rig.controller.rows.first?.playsElsewhere == false)
+    }
+
+    @Test func runningPinnedProcessReleasedAfterWindowWithoutFlapping() async {
+        let rig = await makeRig()
+        _ = await lowered(rig)
+        // Two device changes with a process that really stays on the speakers while playing.
+        for device in [headphones, AudioDeviceID(95)] {
+            rig.system.defaultDevice = device
+            rig.system.fireDefaultDeviceChanged()
+            await rig.controller.settle()
+            let rebuilt = rig.system.liveTaps[0]
+            #expect(rebuilt.device == device)
+            rig.clock.advance(TapController.lagWindow + 1)
+            rig.controller.pollWatchdog()
+            await rig.controller.settle()
+            #expect(rebuilt.invalidated)
+            #expect(rig.controller.rows.first?.playsElsewhere == true)
+            #expect(rig.controller.notice == nil) // a lag expiry is not a flap
+            // Back on the default speakers... then the next change.
+            rig.system.defaultDevice = speakers
+            rig.system.fireDefaultDeviceChanged()
+            await rig.controller.settle()
+            #expect(rig.controller.activeTapKeys == [music])
+        }
+        #expect(rig.controller.notice == nil) // lag expiries are not flaps
+    }
+
+    @Test func flapCountDecaysAfterAStableTap() async {
+        let rig = await makeRig()
+        _ = await lowered(rig)
+        rig.system.processList = [musicProcess(devices: [57])]
+        rig.system.fireProcessesChanged()
+        await rig.controller.settle() // flap 1
+        rig.system.processList = [musicProcess(devices: [speakers])]
+        rig.system.fireProcessesChanged()
+        await rig.controller.settle()
+        rig.clock.advance(TapController.flapWindow + 1)
+        rig.controller.pollWatchdog() // stable for longer than the window
+        await rig.controller.settle()
+        rig.system.processList = [musicProcess(devices: [57])]
+        rig.system.fireProcessesChanged()
+        await rig.controller.settle() // not quick
+        rig.system.processList = [musicProcess(devices: [speakers])]
+        rig.system.fireProcessesChanged()
+        await rig.controller.settle()
+        rig.system.processList = [musicProcess(devices: [57])]
+        rig.system.fireProcessesChanged()
+        await rig.controller.settle() // quick, but the count was reset: flap 1 again
+        rig.system.processList = [musicProcess(devices: [speakers])]
+        rig.system.fireProcessesChanged()
+        await rig.controller.settle()
+        #expect(rig.controller.notice == nil)
+        #expect(rig.controller.activeTapKeys == [music])
+    }
+
+    @Test func changeAndRevertDuringAnAwaitIsNotDeduped() async {
+        let rig = await makeRig(stored: [music: AppVolume(volume: 0.5, muted: false),
+                                         chrome: AppVolume(volume: 0.5, muted: false)], start: false)
+        rig.system.processList.append(chromeProcess())
+        rig.system.holdCreates = true
+        rig.controller.start()
+        await rig.system.waitForHeldCreate() // Music's create
+        rig.controller.setVolume(1, for: music) // B: Music no longer wanted
+        rig.system.releaseHeld(keepHolding: true)
+        await rig.system.waitForHeldCreate() // Music's arrival was dropped; now Chrome's create
+        #expect(rig.system.taps.first?.invalidated == true)
+        rig.controller.setVolume(0.5, for: music) // back to A
+        rig.system.releaseHeld()
+        await rig.controller.settle()
+        #expect(rig.controller.activeTapKeys == [music, chrome])
+    }
 }

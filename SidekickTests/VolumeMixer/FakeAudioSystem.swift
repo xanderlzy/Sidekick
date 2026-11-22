@@ -149,8 +149,8 @@ final class FakeAudioSystem: AudioSystem {
     func fireProcessesChanged() { onProcessesChanged?() }
     func fireDefaultDeviceChanged() { onDefaultDeviceChanged?() }
 
-    func releaseHeld() {
-        holdCreates = false
+    func releaseHeld(keepHolding: Bool = false) {
+        holdCreates = keepHolding
         let waiting = held
         held.removeAll()
         waiting.forEach { $0.resume() }
