@@ -93,7 +93,9 @@
 		80049FC72F64CE0664DFAFE4 /* Formatting.swift in Sources */ = {isa = PBXBuildFile; fileRef = 80CB2E73C5C7B2C3408437F4 /* Formatting.swift */; };
 		8131AA3CAEC376949AD611BD /* WindowManagerTool.swift in Sources */ = {isa = PBXBuildFile; fileRef = D3B2937DF90CCB04E728900D /* WindowManagerTool.swift */; };
 		819EBA8B9180419B3A38214F /* GainRampTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 263A4EE9225521EDCE0EE70C /* GainRampTests.swift */; };
+		84A8FFCA805919CD741D4B4A /* MixerStatusItem.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1C57A2EE5FCA3E8CE7BDF6CE /* MixerStatusItem.swift */; };
 		85711676A6B3A6B5C066C25E /* DictationRecord.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2E3C24BC4F202FE73F62564C /* DictationRecord.swift */; };
+		85B892B37BC4F831595A19AB /* SystemVolume.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1EDB23FBAFA2C4E8E045247 /* SystemVolume.swift */; };
 		8808B930D46A21D63AB9CFC3 /* WelcomeStep.swift in Sources */ = {isa = PBXBuildFile; fileRef = F62D7B8D8E3C3AD83969EF70 /* WelcomeStep.swift */; };
 		8B12EF2BE477A7136C2112F3 /* ScreenGeometryTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 25520FF08E52D6CE77A225C7 /* ScreenGeometryTests.swift */; };
 		8B5A0A37234C4FC7A213CED9 /* WhisperTranscriber.swift in Sources */ = {isa = PBXBuildFile; fileRef = 26DB40ACEB517645C0E2EEF0 /* WhisperTranscriber.swift */; };
@@ -117,6 +119,7 @@
 		B9F1B7C7872106B5B1174E0E /* PillPanel.swift in Sources */ = {isa = PBXBuildFile; fileRef = C8914312E0D2B80B10C59462 /* PillPanel.swift */; };
 		BA2B118BB942ED23222DFD60 /* SystemTiling.swift in Sources */ = {isa = PBXBuildFile; fileRef = 49E5BA73FFEACB1EEA1AB5A9 /* SystemTiling.swift */; };
 		BAEF74D727F917AE5A3CE16A /* MixerRules.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3746B495DBA59150DDC7284E /* MixerRules.swift */; };
+		BC8CFA23AC40B8E548B612F4 /* MixerPanel.swift in Sources */ = {isa = PBXBuildFile; fileRef = B5752FD62CD9B7D291D1BFA1 /* MixerPanel.swift */; };
 		BCF6080B1475DF6165BE2640 /* stop.caf in Resources */ = {isa = PBXBuildFile; fileRef = 6F0DFC67B3777916C6396139 /* stop.caf */; };
 		BF690DC9C7D055FCDAF52C13 /* TapLayoutTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = B229C5C16ECF1C1BDAB1A90B /* TapLayoutTests.swift */; };
 		C1CD20990074591297ED4A23 /* SmokeTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = B613600EE9307BC52AE8BF58 /* SmokeTests.swift */; };
@@ -132,6 +135,7 @@
 		E398EBA014F968378230A1DF /* GlobeKeyStep.swift in Sources */ = {isa = PBXBuildFile; fileRef = 687BE0CC9DAF3B9BCDA5B6A7 /* GlobeKeyStep.swift */; };
 		E69B77E3FC1C668D291CDBC1 /* PolishGuard.swift in Sources */ = {isa = PBXBuildFile; fileRef = 993951D727DA4A8CFBCC2D1A /* PolishGuard.swift */; };
 		E8E4D63D64E7D756FC5C5C50 /* AXWindow.swift in Sources */ = {isa = PBXBuildFile; fileRef = E4CE1A6D8BCCE86A23FC8852 /* AXWindow.swift */; };
+		EA2E5630BD66FDBA76D924EA /* MixerPanelMathTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = A214F4E090D8039A4321BB20 /* MixerPanelMathTests.swift */; };
 		ED5BD5742328644D8F3DA5AA /* DictationHistoryView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2061510F8D87720750F30DE2 /* DictationHistoryView.swift */; };
 		ED8314C633375DDC633620F1 /* StatsStoreTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0B1E7E560639044E8BE35E63 /* StatsStoreTests.swift */; };
 		F3056578B7238E4DC4306195 /* SystemAudioPermissionTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3323A8195F716EECE5B12F2C /* SystemAudioPermissionTests.swift */; };
@@ -169,6 +173,7 @@
 		147CBAFAF83B8ACACE2EFBB4 /* AudioCaptureTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AudioCaptureTests.swift; sourceTree = "<group>"; };
 		18F4CBBF264016D7F71F89C1 /* ToolCard.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ToolCard.swift; sourceTree = "<group>"; };
 		1C4434A7DB3FAFA8279B78F9 /* OnboardingView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = OnboardingView.swift; sourceTree = "<group>"; };
+		1C57A2EE5FCA3E8CE7BDF6CE /* MixerStatusItem.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MixerStatusItem.swift; sourceTree = "<group>"; };
 		1E0A13580AA51E286CD8637C /* MixerSettingsStoreTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MixerSettingsStoreTests.swift; sourceTree = "<group>"; };
 		2061510F8D87720750F30DE2 /* DictationHistoryView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DictationHistoryView.swift; sourceTree = "<group>"; };
 		25520FF08E52D6CE77A225C7 /* ScreenGeometryTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ScreenGeometryTests.swift; sourceTree = "<group>"; };
@@ -243,6 +248,8 @@
 		9CAC936287BB98CFF1D24BCB /* GeneralSettingsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GeneralSettingsView.swift; sourceTree = "<group>"; };
 		9DCA823973E53280386CCE28 /* WindowLayout.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WindowLayout.swift; sourceTree = "<group>"; };
 		A169A0FFE88FCCF5AEE9C3DD /* MixerSettingsStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MixerSettingsStore.swift; sourceTree = "<group>"; };
+		A1EDB23FBAFA2C4E8E045247 /* SystemVolume.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SystemVolume.swift; sourceTree = "<group>"; };
+		A214F4E090D8039A4321BB20 /* MixerPanelMathTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MixerPanelMathTests.swift; sourceTree = "<group>"; };
 		A44C5C1E25DE8A653DFE1CF9 /* AutoAdvance.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AutoAdvance.swift; sourceTree = "<group>"; };
 		A54D9636E795E454A173EEA7 /* FlowLayoutTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FlowLayoutTests.swift; sourceTree = "<group>"; };
 		A65FF19FC142C822A6AFC635 /* TapControllerTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TapControllerTests.swift; sourceTree = "<group>"; };
@@ -256,6 +263,7 @@
 		B32A681C109798AB1FB4638D /* HotkeyMonitor.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HotkeyMonitor.swift; sourceTree = "<group>"; };
 		B51969FE17541CF272D593EC /* FlowLayout.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FlowLayout.swift; sourceTree = "<group>"; };
 		B56ED1D22A7B3AD59B050C1F /* TapLayout.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TapLayout.swift; sourceTree = "<group>"; };
+		B5752FD62CD9B7D291D1BFA1 /* MixerPanel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MixerPanel.swift; sourceTree = "<group>"; };
 		B613600EE9307BC52AE8BF58 /* SmokeTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SmokeTests.swift; sourceTree = "<group>"; };
 		BBD6A6CCFEF7715017A22ED7 /* SetupSheet.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SetupSheet.swift; sourceTree = "<group>"; };
 		BC1DBA9E1BFDCAB25485B9FD /* SoundsTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SoundsTests.swift; sourceTree = "<group>"; };
@@ -498,6 +506,7 @@
 				2941B9E7F2BC3B1B0DB9F4DE /* AppGroupingTests.swift */,
 				7D0BDE1EC618703ABF79225C /* FakeAudioSystem.swift */,
 				263A4EE9225521EDCE0EE70C /* GainRampTests.swift */,
+				A214F4E090D8039A4321BB20 /* MixerPanelMathTests.swift */,
 				670FB7D19C9D73B03234383D /* MixerRulesTests.swift */,
 				1E0A13580AA51E286CD8637C /* MixerSettingsStoreTests.swift */,
 				313DA2568D8BB39A3DAE87F3 /* SilenceWatchdogTests.swift */,
@@ -657,9 +666,12 @@
 				62866F5D2E95EE9091E44132 /* AppTap.swift */,
 				F00305D4E51C8215C9FC9C6F /* AudioSystem.swift */,
 				37C78718863B8E5EAE618675 /* GainRamp.swift */,
+				B5752FD62CD9B7D291D1BFA1 /* MixerPanel.swift */,
 				3746B495DBA59150DDC7284E /* MixerRules.swift */,
 				A169A0FFE88FCCF5AEE9C3DD /* MixerSettingsStore.swift */,
+				1C57A2EE5FCA3E8CE7BDF6CE /* MixerStatusItem.swift */,
 				967BFEE2D522081CDD74BCC4 /* SystemAudioPermission.swift */,
+				A1EDB23FBAFA2C4E8E045247 /* SystemVolume.swift */,
 				B2A175227A8CBC782CFE0D63 /* TapController.swift */,
 				B56ED1D22A7B3AD59B050C1F /* TapLayout.swift */,
 			);
@@ -818,8 +830,10 @@
 				01B8BB557BAFA920D467604B /* LoginItem.swift in Sources */,
 				1542E39A21D8DE0193100928 /* MainWindow.swift in Sources */,
 				0C8B58CFF77D1E89693966FC /* MicrophoneStep.swift in Sources */,
+				BC8CFA23AC40B8E548B612F4 /* MixerPanel.swift in Sources */,
 				BAEF74D727F917AE5A3CE16A /* MixerRules.swift in Sources */,
 				F90EC48170A1FBF7D7A08F57 /* MixerSettingsStore.swift in Sources */,
+				84A8FFCA805919CD741D4B4A /* MixerStatusItem.swift in Sources */,
 				F425D796D2C5E522C5BB9911 /* OnboardingFlow.swift in Sources */,
 				B6F5EEA7D099BB9E29A83D0A /* OnboardingView.swift in Sources */,
 				315ED93BBF36F38C3177F373 /* ParrotImporter.swift in Sources */,
@@ -847,6 +861,7 @@
 				1F57951BCA59C0453495FE14 /* SystemAudioPermission.swift in Sources */,
 				6CABB72E502D1F749E04A3E7 /* SystemAudioStep.swift in Sources */,
 				BA2B118BB942ED23222DFD60 /* SystemTiling.swift in Sources */,
+				85B892B37BC4F831595A19AB /* SystemVolume.swift in Sources */,
 				7EBB538E1E4329DCF943C119 /* TapController.swift in Sources */,
 				7921D0E79585FC1876CB023C /* TapLayout.swift in Sources */,
 				11FE6BAE4D38A5AC8AB2BAE3 /* TextInserter.swift in Sources */,
@@ -889,6 +904,7 @@
 				F7972472A9978B5D1FA0B9FF /* HotkeyStateMachineTests.swift in Sources */,
 				26BDD84FC7DF0B0AFE5DE389 /* LevelMeterTests.swift in Sources */,
 				3ED67EE5D999196A58589BEB /* MainWindowTests.swift in Sources */,
+				EA2E5630BD66FDBA76D924EA /* MixerPanelMathTests.swift in Sources */,
 				31FE3574503E94E1CBC342E6 /* MixerRulesTests.swift in Sources */,
 				A24D63068D881020D63DC63F /* MixerSettingsStoreTests.swift in Sources */,
 				04289C44ECCBF17724854E11 /* OnboardingFlowTests.swift in Sources */,
