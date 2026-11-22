@@ -16,9 +16,11 @@ protocol AudioSystem: AnyObject {
                         onDefaultDeviceChanged: @escaping @MainActor () -> Void)
     /// Removes every listener. No callback runs after this returns.
     func stopListening()
-    /// Gate → tap unmuted → verify → mute → ramp from 0 to `gain`. Slow work runs off the main actor.
+    /// Gate → tap unmuted → verify → mute → ramp from 0 to `gain()`, read when setup completes so a
+    /// change made meanwhile wins. Slow work runs off the main actor.
     /// On any failure nothing is left behind and the app plays normally.
-    func makeTap(processes: [AudioObjectID], device: AudioDeviceID, gain: Float) async throws -> any TapHandle
+    func makeTap(processes: [AudioObjectID], device: AudioDeviceID,
+                 gain: @escaping @MainActor () -> Float) async throws -> any TapHandle
 }
 
 /// One live tap. Call `invalidate()` to release the app to normal sound; `deinit` is only a backstop.
@@ -112,7 +114,8 @@ final class CoreAudioSystem: AudioSystem {
         CoreAudioProperties.string(id, CoreAudioProperties.address(kAudioObjectPropertyName)) ?? ""
     }
 
-    func makeTap(processes: [AudioObjectID], device: AudioDeviceID, gain: Float) async throws -> any TapHandle {
+    func makeTap(processes: [AudioObjectID], device: AudioDeviceID,
+                 gain: @escaping @MainActor () -> Float) async throws -> any TapHandle {
         try await AppTap.make(processes: processes, device: device, gain: gain)
     }
 

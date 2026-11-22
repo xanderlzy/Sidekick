@@ -9,6 +9,8 @@ final class FakeTap: TapHandle {
     let device: AudioDeviceID
     private(set) var processes: [AudioObjectID]
     private(set) var gain: Float
+    /// The gain `makeTap` ramped to when it finished (read from the provider at that point).
+    let initialGain: Float
     private(set) var setProcessesCalls: [[AudioObjectID]] = []
     private(set) var invalidated = false
     private(set) var acknowledgeCount = 0
@@ -29,6 +31,7 @@ final class FakeTap: TapHandle {
         self.processes = processes
         self.device = device
         self.gain = gain
+        self.initialGain = gain
         self.system = system
     }
 
@@ -110,8 +113,9 @@ final class FakeAudioSystem: AudioSystem {
         onDefaultDeviceChanged = nil
     }
 
-    func makeTap(processes: [AudioObjectID], device: AudioDeviceID, gain: Float) async throws -> any TapHandle {
-        makeCalls.append(MakeCall(processes: processes, device: device, gain: gain))
+    func makeTap(processes: [AudioObjectID], device: AudioDeviceID,
+                 gain: @escaping @MainActor () -> Float) async throws -> any TapHandle {
+        makeCalls.append(MakeCall(processes: processes, device: device, gain: gain()))
         events.append("make \(device)")
         if holdCreates {
             await withCheckedContinuation { held.append($0) }
@@ -119,7 +123,8 @@ final class FakeAudioSystem: AudioSystem {
         if !makeErrors.isEmpty, let error = makeErrors.removeFirst() {
             throw error
         }
-        let tap = FakeTap(serial: taps.count + 1, processes: processes, device: device, gain: gain, system: self)
+        // Like AppTap.make: the final ramp reads the gain when setup completes.
+        let tap = FakeTap(serial: taps.count + 1, processes: processes, device: device, gain: gain(), system: self)
         taps.append(tap)
         return tap
     }

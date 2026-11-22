@@ -406,8 +406,9 @@ final class TapController {
         rebuildKeys.remove(key)
         for attempt in 1...2 {
             do {
+                // Read when setup completes, so a slider moved during a slow create wins at once.
                 let handle = try await system.makeTap(processes: ids, device: device,
-                                                      gain: store.setting(for: key).gain)
+                                                      gain: { [store] in store.setting(for: key).gain })
                 guard generation == gen else { handle.invalidate(); return }
                 guard targets()[key] != nil else {
                     // No longer wanted (e.g. back to 100%); the queued re-run releases the old one.

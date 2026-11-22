@@ -26,8 +26,9 @@ final class AppTap: TapHandle {
         session.destroy()
     }
 
-    /// Gate → create unmuted with output gain 0 → verify → flip to `.mutedWhenTapped` → ramp to `gain`.
-    static func make(processes: [AudioObjectID], device: AudioDeviceID, gain: Float) async throws -> AppTap {
+    /// Gate → create unmuted with output gain 0 → verify → flip to `.mutedWhenTapped` → ramp to `gain()`.
+    static func make(processes: [AudioObjectID], device: AudioDeviceID,
+                     gain: @escaping @MainActor () -> Float) async throws -> AppTap {
         guard !processes.isEmpty, !processes.contains(kAudioObjectUnknown) else {
             throw MixerTapError.invalidProcesses
         }
@@ -54,8 +55,8 @@ final class AppTap: TapHandle {
             // 4. Mute the original. Only after this returns do we raise the copy's gain, so the copy
             // never plays on top of the not-yet-muted original.
             try await offMain { try session.setMuted(true) }
-            // 5. Ramp from 0 to the target (~20 ms).
-            tap.setGain(gain)
+            // 5. Ramp from 0 to the target (~20 ms), as it is now: setup can take seconds.
+            tap.setGain(gain())
             return tap
         } catch {
             tap.invalidate()

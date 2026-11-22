@@ -992,4 +992,17 @@ struct TapControllerTests {
         #expect(!tap.invalidated)
         #expect(!rig.controller.needsPermission)
     }
+
+    /// A slider moved during a slow create: the new tap ramps straight to the current gain.
+    @Test func createRampsToTheGainCurrentAtArrival() async {
+        let rig = await makeRig()
+        rig.system.holdCreates = true
+        rig.controller.setVolume(0.5, for: music)
+        await rig.system.waitForHeldCreate()
+        rig.controller.toggleMute(music)
+        rig.system.releaseHeld()
+        await rig.controller.settle()
+        #expect(rig.system.makeCalls.map(\.gain) == [0.25])
+        #expect(rig.system.liveTaps.map(\.initialGain) == [0]) // never ramps up towards 25% first
+    }
 }
