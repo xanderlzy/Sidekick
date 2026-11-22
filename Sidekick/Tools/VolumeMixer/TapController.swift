@@ -27,6 +27,7 @@ final class TapController {
     @ObservationIgnored private let system: any AudioSystem
     @ObservationIgnored private let store: MixerSettingsStore
     @ObservationIgnored private let permission: PermissionCheck
+    @ObservationIgnored private let isGrantedRecently: @MainActor () -> Bool
     @ObservationIgnored private let ownBundleID: String
     @ObservationIgnored private let pollInterval: Duration
     @ObservationIgnored private let now: () -> Date
@@ -112,7 +113,9 @@ final class TapController {
     @ObservationIgnored private var lastInput: ReconcileInput?
     @ObservationIgnored private var watchdogRequested = false
     @ObservationIgnored private var probeRequested = false
-    @ObservationIgnored private var recheckPermission = false
+    /// Ask the (non-prompting) permission check before the next reconcile: on start, and on a
+    /// refresh without a fresh grant. Answers `.notPrompted` without Core Audio before Grant.
+    @ObservationIgnored private var permissionCheckRequested = false
     @ObservationIgnored private var worker: Task<Void, Never>?
     @ObservationIgnored private var retired: [Int: Task<Void, Never>] = [:]
     @ObservationIgnored private var poller: Task<Void, Never>?
@@ -120,12 +123,14 @@ final class TapController {
     init(system: any AudioSystem,
          store: MixerSettingsStore,
          permission: @escaping PermissionCheck = { await SystemAudioPermission.check(maxAge: 0) },
+         isGrantedRecently: @escaping @MainActor () -> Bool = { SystemAudioPermission.isGrantedRecently },
          ownBundleID: String = Bundle.main.bundleIdentifier ?? "com.sidekick.app",
          pollInterval: Duration = .seconds(1),
          now: @escaping () -> Date = Date.init) {
         self.system = system
         self.store = store
         self.permission = permission
+        self.isGrantedRecently = isGrantedRecently
         self.ownBundleID = ownBundleID
         self.pollInterval = pollInterval
         self.now = now
@@ -140,6 +145,10 @@ final class TapController {
         system.startListening(
             onProcessesChanged: { [weak self] in self?.processesChanged() },
             onDefaultDeviceChanged: { [weak self] in self?.worldChanged() })
+        // The permission verdict lives in memory only, so after a relaunch nothing knows it until a
+        // check runs (spike §3: probe on tool start). Without it, a not-granted user would see
+        // working-looking sliders instead of the "needs System Audio Recording" line.
+        permissionCheckRequested = true
         refresh()
     }
 
@@ -170,7 +179,7 @@ final class TapController {
         lastInput = nil
         watchdogRequested = false
         probeRequested = false
-        recheckPermission = false
+        permissionCheckRequested = false
         polls = 0
         notices.removeAll()
         needsPermission = false
@@ -179,10 +188,11 @@ final class TapController {
     }
 
     /// Re-reads processes, apps and the default device, recomputes rows and reconciles taps.
-    /// Also re-checks the permission when it was missing (e.g. the panel opened after Grant).
+    /// Also re-checks the permission when it was missing (e.g. the panel opened after Grant) or
+    /// isn't freshly confirmed (e.g. switched off in System Settings since).
     func refresh() {
         guard running else { return }
-        if needsPermission { recheckPermission = true }
+        if needsPermission || !isGrantedRecently() { permissionCheckRequested = true }
         forceReconcile = true
         worldChanged()
     }
@@ -300,6 +310,11 @@ final class TapController {
     private func drain(_ gen: Int) async {
         var lastWasWatchdog = false
         while generation == gen {
+            if permissionCheckRequested {
+                permissionCheckRequested = false
+                await checkPermission(gen)
+                continue
+            }
             // Alternate when both are pending, so a slow probe plus the 1 Hz poller can't starve
             // a reconcile (e.g. a device-change rebuild).
             if watchdogRequested, !(lastWasWatchdog && reconcileRequested) {
@@ -327,20 +342,12 @@ final class TapController {
         let input = ReconcileInput(groups: groups, defaultOutput: defaultOutput, settings: store.all,
                                    elsewhere: elsewhere)
         // Core Audio fires duplicate notifications; an unchanged world needs no second pass.
-        guard forceReconcile || recheckPermission || !rebuildKeys.isEmpty || input != lastInput else { return }
+        guard forceReconcile || !rebuildKeys.isEmpty || input != lastInput else { return }
         forceReconcile = false
         lastInput = input
-
-        if needsPermission {
-            // Only an explicit refresh re-asks; listener events would just hammer the probe.
-            guard recheckPermission else { return }
-            recheckPermission = false
-            let state = await permission()
-            guard generation == gen, state == .granted else { return }
-            needsPermission = false
-            failed.removeAll()
-        }
-        recheckPermission = false
+        // Only an explicit refresh (or start) re-asks; listener events would just hammer the probe.
+        // A granted answer forces the next reconcile.
+        guard !needsPermission else { return }
 
         let wanted = targets()
         for key in taps.keys where wanted[key] == nil { release(key, reason: .unwanted) }
@@ -448,6 +455,23 @@ final class TapController {
         markFailed(key, device: device, processes: ids)
     }
 
+    /// The start / refresh check. Definitely not granted: release everything and show the line.
+    private func checkPermission(_ gen: Int) async {
+        let state = await permission()
+        guard generation == gen else { return }
+        switch state {
+        case .granted:
+            guard needsPermission else { return }
+            needsPermission = false
+            failed.removeAll()
+            requestForcedReconcile()
+        case .denied, .notPrompted:
+            revoke()
+        case .unknown:
+            break // the gate before each muting tap decides; never tear down on unknown
+        }
+    }
+
     private func watchdog(_ gen: Int) async {
         if unknownRetry == .scheduled {
             unknownRetry = .spent
@@ -513,7 +537,7 @@ final class TapController {
 
     /// Permission is definitely missing: release everything, keep settings.
     private func revoke() {
-        log.error("System Audio Recording not granted; releasing every tap")
+        if !taps.isEmpty { log.error("System Audio Recording not granted; releasing every tap") }
         for tap in taps.values { tap.handle.invalidate() }
         taps.removeAll()
         rebuildKeys.removeAll()

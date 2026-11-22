@@ -46,11 +46,14 @@ struct TapControllerTests {
         let clock = Clock()
         let controller = TapController(system: system, store: store,
                                        permission: { [system] in await system.checkPermission() },
+                                       isGrantedRecently: { [system] in system.freshGrant },
                                        pollInterval: .seconds(3600),
                                        now: { MainActor.assumeIsolated { clock.date } })
         if start {
             controller.start()
             await controller.settle()
+            // Tests below count checks and events from here; the start-up check has its own tests.
+            system.clearRecords()
         }
         return Rig(controller: controller, system: system, store: store, defaults: defaults, clock: clock)
     }
@@ -910,5 +913,83 @@ struct TapControllerTests {
         rig.controller.pollWatchdog()
         await rig.controller.settle()
         #expect(rig.system.permissionChecks == before + 1)
+    }
+
+    // Permission state is in memory only, so every start (a relaunch) asks once (spike §3).
+
+    @Test(arguments: [SystemAudioState.notPrompted, .denied])
+    func startWithoutGrantShowsOnlyThePermissionLine(_ state: SystemAudioState) async {
+        let rig = await makeRig(start: false)
+        rig.system.permissionState = state
+        rig.controller.start()
+        await rig.controller.settle()
+        #expect(rig.system.permissionChecks == 1)
+        #expect(rig.controller.needsPermission)
+        // Moving a slider stores the value and taps nothing.
+        rig.controller.setVolume(0.5, for: music)
+        await rig.controller.settle()
+        #expect(rig.store.setting(for: music).volume == 0.5)
+        #expect(rig.system.makeCalls.isEmpty)
+        #expect(rig.controller.needsPermission)
+    }
+
+    @Test func startDeniedWithStoredSettingsNeverTaps() async {
+        let rig = await makeRig(stored: [music: AppVolume(volume: 0.5, muted: false)], start: false)
+        rig.system.permissionState = .denied
+        rig.controller.start()
+        await rig.controller.settle()
+        #expect(rig.controller.needsPermission)
+        #expect(rig.system.makeCalls.isEmpty)
+    }
+
+    @Test func startGrantedChecksBeforeTapping() async {
+        let rig = await makeRig(stored: [music: AppVolume(volume: 0.5, muted: false)], start: false)
+        rig.controller.start()
+        await rig.controller.settle()
+        #expect(!rig.controller.needsPermission)
+        #expect(rig.system.events == ["permission", "make 81"])
+    }
+
+    @Test func startUnknownLeavesTheGateToDecide() async {
+        let rig = await makeRig(stored: [music: AppVolume(volume: 0.5, muted: false)], start: false)
+        rig.system.permissionState = .unknown
+        rig.controller.start()
+        await rig.controller.settle()
+        #expect(!rig.controller.needsPermission)
+        #expect(rig.controller.activeTapKeys == [music]) // the fake gate grants
+    }
+
+    @Test func restartAsksAgain() async {
+        let rig = await makeRig()
+        rig.controller.stop()
+        rig.controller.start()
+        await rig.controller.settle()
+        #expect(rig.system.permissionChecks == 1)
+    }
+
+    @Test func refreshWithoutFreshGrantChecks() async {
+        let rig = await makeRig()
+        let tap = await lowered(rig)
+        rig.system.freshGrant = true
+        rig.controller.refresh()
+        await rig.controller.settle()
+        #expect(rig.system.permissionChecks == 0)
+        rig.system.freshGrant = false
+        rig.system.permissionState = .denied
+        rig.controller.refresh()
+        await rig.controller.settle()
+        #expect(rig.system.permissionChecks == 1)
+        #expect(tap.invalidated)
+        #expect(rig.controller.needsPermission)
+    }
+
+    @Test func refreshGrantedKeepsTaps() async {
+        let rig = await makeRig()
+        let tap = await lowered(rig)
+        rig.controller.refresh()
+        await rig.controller.settle()
+        #expect(rig.system.permissionChecks == 1)
+        #expect(!tap.invalidated)
+        #expect(!rig.controller.needsPermission)
     }
 }

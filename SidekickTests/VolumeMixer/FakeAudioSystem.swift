@@ -74,6 +74,8 @@ final class FakeAudioSystem: AudioSystem {
     var holdCreates = false
     /// What the injected permission check answers.
     var permissionState: SystemAudioState = .granted
+    /// What the injected "granted within 30 s" answers.
+    var freshGrant = false
 
     private(set) var makeCalls: [MakeCall] = []
     private(set) var taps: [FakeTap] = []
@@ -147,6 +149,12 @@ final class FakeAudioSystem: AudioSystem {
     }
 
     // MARK: Test drivers
+
+    /// Forgets the permission checks and events so far (taps and make calls are kept).
+    func clearRecords() {
+        permissionChecks = 0
+        events.removeAll()
+    }
 
     func fireProcessesChanged() { onProcessesChanged?() }
     func fireDefaultDeviceChanged() { onDefaultDeviceChanged?() }
