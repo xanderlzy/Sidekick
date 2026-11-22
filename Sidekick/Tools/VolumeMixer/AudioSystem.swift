@@ -94,7 +94,8 @@ final class CoreAudioSystem: AudioSystem {
     func runningApps() -> [RunningApp] {
         NSWorkspace.shared.runningApplications.compactMap { app in
             guard let bundleID = app.bundleIdentifier else { return nil }
-            return RunningApp(pid: app.processIdentifier, bundleID: bundleID, name: app.localizedName ?? bundleID)
+            return RunningApp(pid: app.processIdentifier, bundleID: bundleID, name: app.localizedName ?? bundleID,
+                              isRegular: app.activationPolicy == .regular)
         }
     }
 

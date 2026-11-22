@@ -23,6 +23,15 @@ struct RunningApp: Equatable, Sendable {
     let pid: pid_t
     let bundleID: String
     let name: String
+    /// True when the app's activation policy is `.regular` (a real, Dock-visible app).
+    let isRegular: Bool
+
+    init(pid: pid_t, bundleID: String, name: String, isRegular: Bool = true) {
+        self.pid = pid
+        self.bundleID = bundleID
+        self.name = name
+        self.isRegular = isRegular
+    }
 }
 
 /// Maps Core Audio processes onto the apps that own them. Pure; no Core Audio calls.
@@ -39,11 +48,12 @@ enum AppGrouping {
     ) -> [String: [AudioProcess]] {
         let others = apps.filter { $0.bundleID != ownBundleID }
         // Some helpers are listed as running apps themselves (Chrome's audio service, "Google Chrome
-        // Helper (Aperitif)", is com.google.Chrome.helper). One whose bundle ID extends another running
-        // app's is that app's helper, so it never owns a row: its processes fold into the parent.
+        // Helper (Aperitif)", is com.google.Chrome.helper). A non-regular (background) app whose bundle
+        // ID extends another running app's is that app's helper, so it never owns a row: its processes
+        // fold into the parent. Regular apps (Chrome Canary, Safari web apps) always keep their own row.
         let parents = Set(others.map(\.bundleID))
         let candidates = others.filter { app in
-            !parents.contains { app.bundleID.hasPrefix($0 + ".") }
+            app.isRegular || !parents.contains { app.bundleID.hasPrefix($0 + ".") }
         }
         var result: [String: [AudioProcess]] = [:]
         for process in processes {

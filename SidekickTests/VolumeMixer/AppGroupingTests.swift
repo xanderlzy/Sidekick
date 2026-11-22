@@ -34,9 +34,25 @@ struct AppGroupingTests {
     /// listed as a running app; it must still fold into Chrome, not get its own row.
     @Test func helperListedAsARunningAppFoldsIntoItsParent() {
         let aperitif = RunningApp(pid: 150, bundleID: "com.google.Chrome.helper",
-                                  name: "Google Chrome Helper (Aperitif)")
+                                  name: "Google Chrome Helper (Aperitif)", isRegular: false)
         let helper = proc(1, pid: 150, "com.google.Chrome.helper")
         #expect(group([helper], apps: [chrome, aperitif, music]) == ["com.google.Chrome": [helper]])
+    }
+
+    @Test func regularAppExtendingAnotherKeepsItsOwnRow() {
+        let canary = RunningApp(pid: 160, bundleID: "com.google.Chrome.canary", name: "Chrome Canary")
+        let a = proc(1, pid: 100, "com.google.Chrome")
+        let b = proc(2, pid: 160, "com.google.Chrome.canary")
+        #expect(group([a, b], apps: [chrome, canary])
+                == ["com.google.Chrome": [a], "com.google.Chrome.canary": [b]])
+    }
+
+    @Test func chromecastDoesNotFoldIntoChrome() {
+        let cast = RunningApp(pid: 170, bundleID: "com.google.Chromecast", name: "Chromecast")
+        let a = proc(1, pid: 100, "com.google.Chrome")
+        let b = proc(2, pid: 170, "com.google.Chromecast")
+        #expect(group([a, b], apps: [chrome, cast])
+                == ["com.google.Chrome": [a], "com.google.Chromecast": [b]])
     }
 
     @Test func descendantByParentPID() {
