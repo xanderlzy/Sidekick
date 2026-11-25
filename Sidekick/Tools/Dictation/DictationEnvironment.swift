@@ -18,7 +18,7 @@ final class DictationEnvironment {
     var isPruning: Bool { pruneTimer != nil }
     private(set) var pill: PillPresenter?
     let polishClient = SystemModelClient()
-    let whisperModel: WhisperModelStore
+    let engines: SpeechEngines
     private var whisper: WhisperTranscriber?
     /// While set (onboarding practice), hotkey actions go here instead of starting dictation.
     var hotkeyInterceptor: ((HotkeyAction) -> Void)?
@@ -30,10 +30,11 @@ final class DictationEnvironment {
     /// True between `startAll()` and `stopAll()`.
     private(set) var isRunning = false
 
-    init(storeDirectory: URL = DictationEnvironment.defaultStoreDirectory, defaults: UserDefaults = .standard) {
+    init(storeDirectory: URL = DictationEnvironment.defaultStoreDirectory, defaults: UserDefaults = .standard,
+         engines: SpeechEngines = .shared) {
         self.defaults = defaults
+        self.engines = engines
         stats = StatsStore(defaults: defaults)
-        whisperModel = WhisperModelStore(defaults: defaults)
         hotkeys = HotkeyMonitor(key: HotkeyKey(rawValue: defaults.string(forKey: "hotkey") ?? "") ?? .fn)
         let container = (try? HistoryStore.makeContainer(in: storeDirectory))
             ?? (try! ModelContainer(for: DictationRecord.self, configurations: ModelConfiguration(isStoredInMemoryOnly: true)))
@@ -90,11 +91,12 @@ final class DictationEnvironment {
     }
 
     var effectiveEngine: TranscriberKind {
-        .effective(selected: selectedEngine, whisperReady: whisperModel.isReady)
+        .effective(selected: selectedEngine, whisperReady: engines.whisperModel.isReady,
+                    whisperBusy: engines.whisperBusy)
     }
 
     func currentTranscriber() -> Transcriber {
-        guard effectiveEngine == .whisper, let folder = whisperModel.modelFolder else { return appleTranscriber }
+        guard effectiveEngine == .whisper, let folder = engines.whisperModel.modelFolder else { return appleTranscriber }
         if let whisper { return whisper }
         let w = WhisperTranscriber(modelFolder: folder)
         whisper = w

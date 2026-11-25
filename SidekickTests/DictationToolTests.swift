@@ -6,14 +6,16 @@ import Testing
 struct DictationToolTests {
     let defaults: UserDefaults
     let storeDirectory: URL
+    let engines: SpeechEngines
 
     init() {
         defaults = UserDefaults(suiteName: "DictationToolTests-\(UUID())")!
         storeDirectory = FileManager.default.temporaryDirectory.appending(path: "DictationToolTests-\(UUID())")
+        engines = SpeechEngines(defaults: defaults)
     }
 
     func makeTool() -> DictationTool {
-        DictationTool(defaults: defaults, startServices: false, storeDirectory: storeDirectory)
+        DictationTool(defaults: defaults, startServices: false, storeDirectory: storeDirectory, engines: engines)
     }
 
     @Test func stepsDependOnHotkey() {
@@ -32,7 +34,7 @@ struct DictationToolTests {
 
     @Test func accessibilityGrantedWhileStoppedDoesNotStartHotkeys() {
         var calls = 0
-        let tool = DictationTool(defaults: defaults, startServices: false, storeDirectory: storeDirectory,
+        let tool = DictationTool(defaults: defaults, startServices: false, storeDirectory: storeDirectory, engines: engines,
                                  startHotkeys: { _ in calls += 1 })
         tool.start()
         tool.stop()
@@ -84,5 +86,20 @@ struct DictationToolTests {
     @Test func historyStoreLivesInStoreDirectory() throws {
         _ = try HistoryStore.makeContainer(in: storeDirectory)
         #expect(FileManager.default.fileExists(atPath: storeDirectory.appending(path: "History.store").path))
+    }
+
+    @Test func dictationUsesAppleWhileTranscribeBusy() throws {
+        let model = FileManager.default.temporaryDirectory.appending(path: "DictationToolTests-model-\(UUID())")
+        try FileManager.default.createDirectory(at: model, withIntermediateDirectories: true)
+        defer { try? FileManager.default.removeItem(at: model) }
+        defaults.set(model.path, forKey: WhisperModelStore.pathKey)
+        defaults.set(TranscriberKind.whisper.rawValue, forKey: TranscriberKind.storageKey)
+        let engines = SpeechEngines(defaults: defaults)
+        let env = DictationEnvironment(storeDirectory: storeDirectory, defaults: defaults, engines: engines)
+        #expect(env.effectiveEngine == .whisper)
+        engines.whisperBusy = true
+        #expect(env.effectiveEngine == .apple)
+        engines.whisperBusy = false
+        #expect(env.effectiveEngine == .whisper)
     }
 }

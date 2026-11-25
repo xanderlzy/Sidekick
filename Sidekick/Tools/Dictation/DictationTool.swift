@@ -20,11 +20,13 @@ final class DictationTool: Tool {
     private let importer: ParrotImporter?
     /// Seam so tests can observe whether an Accessibility grant starts the hotkeys.
     private let startHotkeys: @MainActor (DictationEnvironment) -> Void
+    private let engines: SpeechEngines
 
     init(defaults: UserDefaults = .standard, startServices: Bool = NSClassFromString("XCTestCase") == nil,
-         storeDirectory: URL = DictationEnvironment.defaultStoreDirectory, importer: ParrotImporter? = nil,
+         storeDirectory: URL = DictationEnvironment.defaultStoreDirectory, importer: ParrotImporter? = nil, engines: SpeechEngines = .shared,
          startHotkeys: @escaping @MainActor (DictationEnvironment) -> Void = { $0.startHotkeys() }) {
         self.startHotkeys = startHotkeys
+        self.engines = engines
         self.importer = importer
         self.defaults = defaults
         self.startServices = startServices
@@ -61,7 +63,7 @@ final class DictationTool: Tool {
         if env == nil, let count = try? importer?.importIfNeeded(), count > 0 {
             defaults.set(count, forKey: ParrotImporter.countKey)
         }
-        let env = env ?? DictationEnvironment(storeDirectory: storeDirectory, defaults: defaults)
+        let env = env ?? DictationEnvironment(storeDirectory: storeDirectory, defaults: defaults, engines: engines)
         self.env = env
         if startServices { env.startAll() }
     }

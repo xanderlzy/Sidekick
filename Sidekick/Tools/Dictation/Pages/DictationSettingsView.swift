@@ -31,7 +31,8 @@ struct DictationSettingsView: View {
                         }
                         .labelsHidden().frame(width: Theme.pickerWidth, alignment: .trailing)
                     }
-                    EngineSettings(env: env)
+                    EngineSettings(engineKey: TranscriberKind.storageKey, defaultEngine: .apple,
+                                   models: env.engines.whisperModel, onChange: { env.warmUpEngine() })
                 }
 
                 SettingsSection("Feedback") {
@@ -81,10 +82,18 @@ struct DictationSettingsView: View {
 
 /// Speech engine choice, plus the optional Whisper download.
 struct EngineSettings: View {
-    let env: DictationEnvironment
-    @AppStorage(TranscriberKind.storageKey) private var engine = TranscriberKind.apple.rawValue
+    let models: WhisperModelStore
+    let onChange: @MainActor () -> Void
+    @AppStorage private var engine: String
 
-    private var store: WhisperModelStore { env.whisperModel }
+    init(engineKey: String, defaultEngine: TranscriberKind, models: WhisperModelStore,
+         onChange: @escaping @MainActor () -> Void) {
+        _engine = AppStorage(wrappedValue: defaultEngine.rawValue, engineKey)
+        self.models = models
+        self.onChange = onChange
+    }
+
+    private var store: WhisperModelStore { models }
     private var waitingForDownload: Bool { engine == TranscriberKind.whisper.rawValue && !store.isReady }
 
     var body: some View {
@@ -95,8 +104,8 @@ struct EngineSettings: View {
             }
             .labelsHidden().frame(width: Theme.pickerWidth, alignment: .trailing)
         }
-        .onChange(of: engine) { _, _ in env.warmUpEngine() }
-        .onChange(of: store.state) { _, new in if new == .ready { env.warmUpEngine() } }
+        .onChange(of: engine) { _, _ in onChange() }
+        .onChange(of: store.state) { _, new in if new == .ready { onChange() } }
 
         SettingsRow(title: "Whisper model", detail: whisperDetail) {
             switch store.state {
@@ -109,7 +118,7 @@ struct EngineSettings: View {
                         .foregroundStyle(Theme.fg(0.5)).frame(width: 34, alignment: .trailing)
                 }
             case .ready:
-                Button("Remove") { store.remove(); env.warmUpEngine() }.buttonStyle(MonoButtonStyle())
+                Button("Remove") { store.remove(); onChange() }.buttonStyle(MonoButtonStyle())
             }
         }
         .animation(Motion.fluid, value: store.state)

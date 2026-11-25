@@ -15,6 +15,11 @@ struct WhisperTranscriberTests {
         #expect(TranscriberKind.effective(selected: .apple, whisperReady: true) == .apple)
     }
 
+    @Test func busyWhisperFallsBackToApple() {
+        #expect(TranscriberKind.effective(selected: .whisper, whisperReady: true, whisperBusy: true) == .apple)
+        #expect(TranscriberKind.effective(selected: .whisper, whisperReady: true, whisperBusy: false) == .whisper)
+    }
+
     /// Real model run with the tiny English model (~40 MB, cached between runs).
     @Test(.timeLimit(.minutes(10)))
     func transcribesSynthesizedSpeechWithTinyModel() async throws {

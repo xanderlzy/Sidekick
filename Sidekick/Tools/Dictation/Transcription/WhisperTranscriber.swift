@@ -5,9 +5,9 @@ import WhisperKit
 import os
 
 extension TranscriberKind {
-    /// Whisper is used only once its model is on disk; until then Apple's engine stands in.
-    static func effective(selected: TranscriberKind, whisperReady: Bool) -> TranscriberKind {
-        selected == .whisper && !whisperReady ? .apple : selected
+    /// Whisper is used only once its model is on disk and nothing else is using it; otherwise Apple's engine stands in.
+    static func effective(selected: TranscriberKind, whisperReady: Bool, whisperBusy: Bool = false) -> TranscriberKind {
+        selected == .whisper && (!whisperReady || whisperBusy) ? .apple : selected
     }
     static let storageKey = "transcriber"
 }
