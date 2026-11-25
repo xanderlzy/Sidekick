@@ -53,4 +53,31 @@ struct TranscriptStoreTests {
         store.delete(t)
         #expect(store.all().isEmpty)
     }
+
+    @Test func allIsNewestFirst() throws {
+        let store = try makeStore()
+        let old = store.add(fileURL: URL(fileURLWithPath: "/tmp/old.m4a"), wantsCleanup: false)
+        old.dateAdded = Date(timeIntervalSince1970: 1000)
+        let new = store.add(fileURL: URL(fileURLWithPath: "/tmp/new.m4a"), wantsCleanup: false)
+        new.dateAdded = Date(timeIntervalSince1970: 2000)
+        #expect(store.all().map(\.title) == ["new", "old"])
+    }
+
+    @Test func recoverLeavesDoneUntouched() throws {
+        let store = try makeStore()
+        let t = store.add(fileURL: URL(fileURLWithPath: "/tmp/a.m4a"), wantsCleanup: false)
+        t.status = .done
+        store.recoverAfterLaunch()
+        #expect(t.status == .done)
+        #expect(t.stoppedAt == nil)
+    }
+
+    @Test func unreadableSegmentsAreNotOverwritten() throws {
+        let store = try makeStore()
+        let t = store.add(fileURL: URL(fileURLWithPath: "/tmp/a.m4a"), wantsCleanup: false)
+        let garbage = Data("not json".utf8)
+        t.segmentsData = garbage
+        t.segments = t.segments + [Segment(start: 0, end: 1, text: "x")]
+        #expect(t.segmentsData == garbage)
+    }
 }

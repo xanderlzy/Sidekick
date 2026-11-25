@@ -1,5 +1,8 @@
 import Foundation
+import os
 import SwiftData
+
+private let log = Logger(subsystem: "com.sidekick.app", category: "Transcribe")
 
 struct Segment: Codable, Hashable, Sendable {
     var start: Double
@@ -53,13 +56,30 @@ final class Transcript {
         set { statusRaw = newValue.rawValue }
     }
 
+    /// Decoded segments. Returns `[]` if the stored data is unreadable; the setter then
+    /// refuses to overwrite it, so a bad read can never wipe saved text.
     var segments: [Segment] {
         get { (try? JSONDecoder().decode([Segment].self, from: segmentsData)) ?? [] }
-        set { segmentsData = (try? JSONEncoder().encode(newValue)) ?? Data() }
+        set {
+            guard (try? JSONDecoder().decode([Segment].self, from: segmentsData)) != nil else {
+                log.error("Refusing to overwrite unreadable segments for \(self.id)")
+                return
+            }
+            do { segmentsData = try JSONEncoder().encode(newValue) }
+            catch { log.error("Failed to encode segments, keeping old data: \(error)") }
+        }
     }
 
     var cleaned: [Paragraph]? {
         get { cleanedData.flatMap { try? JSONDecoder().decode([Paragraph].self, from: $0) } }
-        set { cleanedData = newValue.flatMap { try? JSONEncoder().encode($0) } }
+        set {
+            guard let newValue else { cleanedData = nil; return }
+            if let old = cleanedData, (try? JSONDecoder().decode([Paragraph].self, from: old)) == nil {
+                log.error("Refusing to overwrite unreadable cleaned text for \(self.id)")
+                return
+            }
+            do { cleanedData = try JSONEncoder().encode(newValue) }
+            catch { log.error("Failed to encode cleaned text, keeping old data: \(error)") }
+        }
     }
 }

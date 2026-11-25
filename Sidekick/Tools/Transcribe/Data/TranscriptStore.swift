@@ -1,10 +1,12 @@
 import Foundation
+import os
 import SwiftData
 
 /// Persists saved transcripts.
 @MainActor
 final class TranscriptStore {
     let container: ModelContainer
+    private let log = Logger(subsystem: "com.sidekick.app", category: "Transcribe")
     private var context: ModelContext { container.mainContext }
 
     init(container: ModelContainer) {
@@ -28,7 +30,7 @@ final class TranscriptStore {
     }
 
     func save() {
-        try? context.save()
+        do { try context.save() } catch { log.error("Save failed: \(error)") }
     }
 
     func delete(_ transcript: Transcript) {
@@ -55,6 +57,10 @@ final class TranscriptStore {
     /// Newest first.
     func all() -> [Transcript] {
         let descriptor = FetchDescriptor<Transcript>(sortBy: [SortDescriptor(\.dateAdded, order: .reverse)])
-        return (try? context.fetch(descriptor)) ?? []
+        do { return try context.fetch(descriptor) }
+        catch {
+            log.error("Fetch failed: \(error)")
+            return []
+        }
     }
 }
