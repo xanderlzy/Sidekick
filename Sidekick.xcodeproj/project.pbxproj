@@ -59,6 +59,7 @@
 		3ED67EE5D999196A58589BEB /* MainWindowTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3F25EC644A1CDDBD91077342 /* MainWindowTests.swift */; };
 		42F44437E49971B59B61E0AF /* Theme.swift in Sources */ = {isa = PBXBuildFile; fileRef = ED3A93968B393B57C3779295 /* Theme.swift */; };
 		46A6C9BB0744724F5FC0176E /* Transcriber.swift in Sources */ = {isa = PBXBuildFile; fileRef = CE94BA95293CF271781E3592 /* Transcriber.swift */; };
+		4855165A805C90CD15EEAD46 /* SpeechEngines.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3C2392E8B4BB080C14112393 /* SpeechEngines.swift */; };
 		4B3A61C46F8A7AD82F5C4588 /* MixerMenuRows.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3B7B2D8671E542C0E5F2EA5D /* MixerMenuRows.swift */; };
 		4BC3A93A44316CA325A15927 /* TestSupport.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7AA284107D056925EF663A9A /* TestSupport.swift */; };
 		4ECF169E1D73C9594A2DB12B /* AudioCaptureTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 147CBAFAF83B8ACACE2EFBB4 /* AudioCaptureTests.swift */; };
@@ -200,6 +201,7 @@
 		383DB02DA6EC2A8EF4AC60AC /* ParrotImporterTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ParrotImporterTests.swift; sourceTree = "<group>"; };
 		3B7B2D8671E542C0E5F2EA5D /* MixerMenuRows.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MixerMenuRows.swift; sourceTree = "<group>"; };
 		3B8FCAC7FAE1F08576AC7CD6 /* DictationSettingsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DictationSettingsView.swift; sourceTree = "<group>"; };
+		3C2392E8B4BB080C14112393 /* SpeechEngines.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SpeechEngines.swift; sourceTree = "<group>"; };
 		3CE739642F1164870D8B2194 /* WindowLayoutTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WindowLayoutTests.swift; sourceTree = "<group>"; };
 		3D1A6F95D40E89461D9E4A5F /* SidekickTests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = SidekickTests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
 		3D437996FD179A89893C1AB1 /* PolisherTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PolisherTests.swift; sourceTree = "<group>"; };
@@ -546,6 +548,7 @@
 				5B0B3EA91745C5A087567BA2 /* LoginItem.swift */,
 				982C999D5835C76DE74AE8B2 /* Permission.swift */,
 				30DC85479ACE135EE641A878 /* Permissions.swift */,
+				3C2392E8B4BB080C14112393 /* SpeechEngines.swift */,
 				CD376CD249438490D5F90B6B /* Tool.swift */,
 				CA102A231BC2E15195A784D7 /* ToolRegistry.swift */,
 				E7FC03B32A3607A9D64F5258 /* Updater.swift */,
@@ -753,7 +756,7 @@
 			isa = PBXProject;
 			attributes = {
 				BuildIndependentTargetsInParallel = YES;
-				LastUpgradeCheck = 1430;
+				LastUpgradeCheck = 1600;
 				TargetAttributes = {
 					5B326D79C872A1D948C87D71 = {
 						DevelopmentTeam = "";
@@ -872,6 +875,7 @@
 				5D8A29B7A6CA24DBF1149BA6 /* SnapAreas.swift in Sources */,
 				B28B8EAAEBC205CDA4BEC261 /* SnapPreviewPanel.swift in Sources */,
 				1E98E45397BF058C3AB58F51 /* Sounds.swift in Sources */,
+				4855165A805C90CD15EEAD46 /* SpeechEngines.swift in Sources */,
 				2B681CF264FE0CDA86311F2A /* SpeechModelStep.swift in Sources */,
 				661F1D146762334651C90B4C /* StatsStore.swift in Sources */,
 				1F57951BCA59C0453495FE14 /* SystemAudioPermission.swift in Sources */,
