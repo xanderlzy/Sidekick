@@ -37,6 +37,7 @@
 		1F57951BCA59C0453495FE14 /* SystemAudioPermission.swift in Sources */ = {isa = PBXBuildFile; fileRef = 967BFEE2D522081CDD74BCC4 /* SystemAudioPermission.swift */; };
 		2222BC6606D65986B214A719 /* PolishGuardTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7B7878C0835F4063D25F78EF /* PolishGuardTests.swift */; };
 		2430FC6174402E67A46133CF /* ToolRegistryTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8E670184CA6742723D1E7482 /* ToolRegistryTests.swift */; };
+		259FD6EF7291F5F762695DF3 /* TranscriptFormatterTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2CCFA05A7602A7C83DEEEC97 /* TranscriptFormatterTests.swift */; };
 		25A8F47B22C25F97FD3325C3 /* KeyboardShortcuts in Frameworks */ = {isa = PBXBuildFile; productRef = 9924280AE3883016A21E0A6F /* KeyboardShortcuts */; };
 		26BDD84FC7DF0B0AFE5DE389 /* LevelMeterTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 367E94BB365D9396B6850190 /* LevelMeterTests.swift */; };
 		26EBCD04F01516DC47F616BF /* RestoreStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0D01BADBE9A88DF71F379F5E /* RestoreStore.swift */; };
@@ -73,6 +74,7 @@
 		5D8A29B7A6CA24DBF1149BA6 /* SnapAreas.swift in Sources */ = {isa = PBXBuildFile; fileRef = 49E61FF2433BE0633C831BB6 /* SnapAreas.swift */; };
 		601F0314E9ED2B51DB91709D /* PillState.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9ADF632F120C71CF30B7F343 /* PillState.swift */; };
 		6072D503BFC85E1AA344366E /* FakeTool.swift in Sources */ = {isa = PBXBuildFile; fileRef = BC81589B73200224EF7DAF6F /* FakeTool.swift */; };
+		607D690B63AD3C62DF14B5E2 /* TranscriptFormatter.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5866B66336C29DEC9DC203C4 /* TranscriptFormatter.swift */; };
 		60DFDB30573FC2E5A62D4FE1 /* SystemModelIntegrationTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = A7E06096715544F975D94AC6 /* SystemModelIntegrationTests.swift */; };
 		661F1D146762334651C90B4C /* StatsStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = C32657C9139026CB6740FEA0 /* StatsStore.swift */; };
 		6706163E24ED9F930AAD5BE8 /* DragClassifierTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 73CA2BC0E7450085AEBD8D70 /* DragClassifierTests.swift */; };
@@ -190,6 +192,7 @@
 		26DB40ACEB517645C0E2EEF0 /* WhisperTranscriber.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WhisperTranscriber.swift; sourceTree = "<group>"; };
 		2941B9E7F2BC3B1B0DB9F4DE /* AppGroupingTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppGroupingTests.swift; sourceTree = "<group>"; };
 		2B87578A83C9DE15DD05F87F /* OnboardingFlow.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = OnboardingFlow.swift; sourceTree = "<group>"; };
+		2CCFA05A7602A7C83DEEEC97 /* TranscriptFormatterTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TranscriptFormatterTests.swift; sourceTree = "<group>"; };
 		2E3C24BC4F202FE73F62564C /* DictationRecord.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DictationRecord.swift; sourceTree = "<group>"; };
 		3009EDC0CC7402C1B5CD597E /* TryItStep.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TryItStep.swift; sourceTree = "<group>"; };
 		30DC85479ACE135EE641A878 /* Permissions.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Permissions.swift; sourceTree = "<group>"; };
@@ -219,6 +222,7 @@
 		527EF396FBDAECEB4E893DD9 /* AppleIntelligenceStep.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppleIntelligenceStep.swift; sourceTree = "<group>"; };
 		56845E5F795E959A3B344520 /* DragClassifier.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DragClassifier.swift; sourceTree = "<group>"; };
 		57213F0D475945E645717D51 /* TextInserter.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TextInserter.swift; sourceTree = "<group>"; };
+		5866B66336C29DEC9DC203C4 /* TranscriptFormatter.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TranscriptFormatter.swift; sourceTree = "<group>"; };
 		591420A4E15965220176DA31 /* SetupCoordinatorTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SetupCoordinatorTests.swift; sourceTree = "<group>"; };
 		5AF713BED9E2C0D376BFEA05 /* DictationControllerTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DictationControllerTests.swift; sourceTree = "<group>"; };
 		5B0B3EA91745C5A087567BA2 /* LoginItem.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LoginItem.swift; sourceTree = "<group>"; };
@@ -575,6 +579,7 @@
 		83B519B1E1B16D6738907FC8 /* Transcribe */ = {
 			isa = PBXGroup;
 			children = (
+				2CCFA05A7602A7C83DEEEC97 /* TranscriptFormatterTests.swift */,
 				928DB759F809924C76598F82 /* TranscriptStoreTests.swift */,
 			);
 			path = Transcribe;
@@ -724,6 +729,7 @@
 		FE27E61279DE862B0BA92F44 /* Transcribe */ = {
 			isa = PBXGroup;
 			children = (
+				5866B66336C29DEC9DC203C4 /* TranscriptFormatter.swift */,
 				6B66494935E8D7BBEFEB005F /* Data */,
 			);
 			path = Transcribe;
@@ -924,6 +930,7 @@
 				1BB9337E947089D13883085B /* ToolRegistry.swift in Sources */,
 				46A6C9BB0744724F5FC0176E /* Transcriber.swift in Sources */,
 				5728DDBF6A0634CC602DC974 /* Transcript.swift in Sources */,
+				607D690B63AD3C62DF14B5E2 /* TranscriptFormatter.swift in Sources */,
 				7A17544D3FBAB3812244B362 /* TranscriptStore.swift in Sources */,
 				72B37DFE12F920C833C55819 /* TryItStep.swift in Sources */,
 				289E756FE40086BAF08E4514 /* Updater.swift in Sources */,
@@ -987,6 +994,7 @@
 				4BC3A93A44316CA325A15927 /* TestSupport.swift in Sources */,
 				0B7C7F5B9147F6CA07CF82DB /* TextInserterTests.swift in Sources */,
 				2430FC6174402E67A46133CF /* ToolRegistryTests.swift in Sources */,
+				259FD6EF7291F5F762695DF3 /* TranscriptFormatterTests.swift in Sources */,
 				F5C924F652F493F8467719DE /* TranscriptStoreTests.swift in Sources */,
 				297413957A6A0EFD1D60CF92 /* VolumeMixerToolTests.swift in Sources */,
 				270779E4D23DA281E6EC68AD /* WhisperTranscriberTests.swift in Sources */,
