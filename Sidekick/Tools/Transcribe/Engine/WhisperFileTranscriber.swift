@@ -25,21 +25,27 @@ struct WhisperFileTranscriber: FileTranscriber {
         let meter = ProgressMeter(duration: audio.duration, report: onProgress)
         let cancelled = OSAllocatedFlag()
 
-        _ = try await kit.transcribe(
-            audioArray: samples,
-            decodeOptions: options,
-            callback: { _ in
-                if Task.isCancelled { cancelled.set(); return false }
-                return nil
-            },
-            segmentCallback: { found in
-                let segments = found.compactMap { s -> Segment? in
-                    let text = WhisperTranscriber.clean(s.text)
-                    return text.isEmpty ? nil : Segment(start: Double(s.start), end: Double(s.end), text: text)
-                }
-                if !segments.isEmpty { onSegments(segments) }
-                if let end = found.map({ Double($0.end) }).max() { meter.update(seconds: end) }
-            })
+        // In the chunked (VAD) path WhisperKit ignores the per-call segment callback and uses this
+        // instance property; its timings are already shifted to absolute file time.
+        kit.segmentDiscoveryCallback = { found in
+            let segments = found.compactMap { s -> Segment? in
+                let text = WhisperTranscriber.clean(s.text)
+                return text.isEmpty ? nil : Segment(start: Double(s.start), end: Double(s.end), text: text)
+            }
+            if !segments.isEmpty { onSegments(segments) }
+            if let end = found.map({ Double($0.end) }).max() { meter.update(seconds: end) }
+        }
+
+        // WhisperKit calls `callback` from a detached task, so Task.isCancelled is false there;
+        // the cancellation handler sets a flag it can read instead.
+        _ = try await withTaskCancellationHandler {
+            try await kit.transcribe(
+                audioArray: samples,
+                decodeOptions: options,
+                callback: { _ in cancelled.isSet ? false : nil })
+        } onCancel: {
+            cancelled.set()
+        }
 
         // WhisperKit returns normally when the callback stops it; surface that as cancellation.
         if cancelled.isSet { throw CancellationError() }

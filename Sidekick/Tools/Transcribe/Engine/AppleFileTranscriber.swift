@@ -2,7 +2,7 @@ import AVFoundation
 import Foundation
 import Speech
 
-enum AppleFileError: Error { case unavailable, assetsUnavailable }
+enum AppleFileError: Error { case unavailable, assetsUnavailable(underlying: Error?) }
 
 /// Whole-file transcription with Apple's SpeechAnalyzer (English).
 struct AppleFileTranscriber: FileTranscriber {
@@ -18,10 +18,12 @@ struct AppleFileTranscriber: FileTranscriber {
             if let request = try await AssetInventory.assetInstallationRequest(supporting: [module]) {
                 try await request.downloadAndInstall()
             }
-        } catch { throw AppleFileError.assetsUnavailable }
+        } catch is CancellationError {
+            throw CancellationError()
+        } catch { throw AppleFileError.assetsUnavailable(underlying: error) }
         let installed = await SpeechTranscriber.installedLocales
         guard installed.contains(where: { $0.language.languageCode == locale.language.languageCode }) else {
-            throw AppleFileError.assetsUnavailable
+            throw AppleFileError.assetsUnavailable(underlying: nil)
         }
         try Task.checkCancellation()
 
@@ -29,21 +31,26 @@ struct AppleFileTranscriber: FileTranscriber {
         let analyzer = SpeechAnalyzer(modules: [module])
         let meter = ProgressMeter(duration: audio.duration, report: onProgress)
 
-        try await withTaskCancellationHandler {
-            try await analyzer.start(inputAudioFile: file, finishAfterFile: true)
-            for try await result in module.results where result.isFinal {
-                let text = String(result.text.characters).trimmingCharacters(in: .whitespacesAndNewlines)
-                let start = result.range.start.seconds, end = result.range.end.seconds
-                if !text.isEmpty, start.isFinite, end.isFinite {
-                    onSegments([Segment(start: max(start, 0), end: max(end, start, 0), text: text)])
+        do {
+            try await withTaskCancellationHandler {
+                try await analyzer.start(inputAudioFile: file, finishAfterFile: true)
+                for try await result in module.results where result.isFinal {
+                    let text = String(result.text.characters).trimmingCharacters(in: .whitespacesAndNewlines)
+                    let start = result.range.start.seconds, end = result.range.end.seconds
+                    if !text.isEmpty, start.isFinite, end.isFinite {
+                        onSegments([Segment(start: max(start, 0), end: max(end, start, 0), text: text)])
+                    }
+                    if end.isFinite { meter.update(seconds: end) }
                 }
-                if end.isFinite { meter.update(seconds: end) }
+            } onCancel: {
+                Task { await analyzer.cancelAndFinishNow() }
             }
-            // The results stream also ends when the analyzer is cancelled.
-            try Task.checkCancellation()
-            onProgress(1)
-        } onCancel: {
-            Task { await analyzer.cancelAndFinishNow() }
+        } catch {
+            // Cancelling the analyzer can end the stream with a different error or normally.
+            if Task.isCancelled { throw CancellationError() }
+            throw error
         }
+        try Task.checkCancellation()
+        onProgress(1)
     }
 }
