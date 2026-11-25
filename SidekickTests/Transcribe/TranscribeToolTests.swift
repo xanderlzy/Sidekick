@@ -126,6 +126,41 @@ struct TranscribeToolTests {
         #expect(store.all().isEmpty)
     }
 
+    @Test func confirmationCheckReadsStoredBytes() throws {
+        let tool = makeTool()
+        tool.start()
+        let store = try #require(tool.store)
+        let t = store.add(fileURL: URL(fileURLWithPath: "/tmp/Running.mp4"), wantsCleanup: false)
+        // Waiting, nothing transcribed yet: Cancel removes it straight away.
+        #expect(!TranscribeTool.hasStoredText(t))
+        #expect(!TranscribeTool.deleteNeedsConfirmation(t))
+
+        // Running with partial text: Cancel must ask first, just like Delete.
+        t.status = .transcribing
+        t.segments = [seg(0, 2, "most of an hour")]
+        #expect(TranscribeTool.hasStoredText(t))
+        #expect(TranscribeTool.deleteNeedsConfirmation(t))
+
+        // Retry clears the text; cleaned text alone also counts.
+        t.segments = []
+        #expect(!TranscribeTool.hasStoredText(t))
+        t.cleaned = [Paragraph(start: 0, text: "Cleaned.")]
+        #expect(TranscribeTool.hasStoredText(t))
+    }
+
+    @Test func deleteIgnoresAlreadyRemovedItem() throws {
+        let tool = makeTool()
+        tool.start()
+        let store = try #require(tool.store)
+        let t = store.add(fileURL: URL(fileURLWithPath: "/tmp/Twice.mp4"), wantsCleanup: false)
+        t.status = .done
+        store.save()
+        tool.delete(t)
+        tool.delete(t)  // A second confirmation for the same item is a no-op.
+        #expect(store.all().isEmpty)
+        #expect(tool.rename(t, to: "New") == "New")
+    }
+
     @Test func startRecoversOnlyOnce() throws {
         // An item left mid-transcription by a quit.
         do {

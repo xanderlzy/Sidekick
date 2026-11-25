@@ -107,6 +107,8 @@ final class TranscribeTool: Tool {
 
     /// Waiting and running items are cancelled (which deletes them); others are deleted outright.
     func delete(_ t: Transcript) {
+        // A confirmation may outlive the item (the queue can't delete it, but the user could twice).
+        guard t.modelContext != nil, !t.isDeleted else { return }
         switch t.status {
         case .waiting, .transcribing: queue?.cancel(t)
         default: store?.delete(t)
@@ -114,9 +116,18 @@ final class TranscribeTool: Tool {
     }
 
     /// Finished or partly finished text is worth a second thought before it's gone.
+    /// Asks before removing anything with text, finished or not. Cheap: never decodes the segments.
     static func deleteNeedsConfirmation(_ t: Transcript) -> Bool {
-        t.status == .done || t.status == .incomplete || !t.segments.isEmpty
+        t.status == .done || t.status == .incomplete || hasStoredText(t)
     }
+
+    /// True when the item holds any segments or cleaned text, judged from the stored bytes without
+    /// decoding them (an empty segment list encodes as `[]`).
+    static func hasStoredText(_ t: Transcript) -> Bool {
+        t.cleanedData != nil || t.segmentsData.count > emptySegmentsByteCount
+    }
+
+    private static let emptySegmentsByteCount = (try? JSONEncoder().encode([Segment]()))?.count ?? 2
 
     static func canRetry(_ t: Transcript) -> Bool {
         [.stopped, .incomplete, .failed].contains(t.status)

@@ -12,6 +12,7 @@ struct TranscribeView: View {
     @Query(sort: \Transcript.dateAdded, order: .reverse) private var transcripts: [Transcript]
     @State private var openID: UUID?
     @State private var targeted = false
+    @State private var pendingRemoval: Transcript?
 
     var body: some View {
         Group {
@@ -51,7 +52,7 @@ struct TranscribeView: View {
                             TranscriptRow(transcript: t, progress: queue.progress[t.id],
                                           open: { withAnimation(Motion.fluid) { openID = t.id } },
                                           retry: { queue.retry(t) },
-                                          cancel: { withAnimation(Motion.fluid) { queue.cancel(t) } })
+                                          cancel: { $pendingRemoval.request(t, remove: remove) })
                         }
                     }
                     .animation(Motion.fluid, value: transcripts.count)
@@ -67,6 +68,11 @@ struct TranscribeView: View {
             tool.add(files)
             return true
         } isTargeted: { targeted = $0 }
+        .confirmingRemoval($pendingRemoval, remove: remove)
+    }
+
+    private func remove(_ t: Transcript) {
+        withAnimation(Motion.fluid) { tool.delete(t) }
     }
 
     private var dropArea: some View {
@@ -165,5 +171,41 @@ private struct TranscriptRow: View {
             Hairline()
         }
         .transition(.opacity.combined(with: .scale(scale: 0.98)))
+    }
+}
+
+// MARK: - Removal confirmation, shared by the list's Cancel and the detail view's Delete
+
+extension Binding where Value == Transcript? {
+    /// Removes `t` right away when nothing would be lost, otherwise holds it for the confirmation.
+    @MainActor func request(_ t: Transcript, remove: (Transcript) -> Void) {
+        if TranscribeTool.deleteNeedsConfirmation(t) { wrappedValue = t } else { remove(t) }
+    }
+}
+
+private struct ConfirmRemoval: ViewModifier {
+    @Binding var pending: Transcript?
+    let remove: (Transcript) -> Void
+
+    func body(content: Content) -> some View {
+        content.alert(title, isPresented: Binding(get: { pending != nil }, set: { if !$0 { pending = nil } }),
+                      presenting: pending) { t in
+            Button("Delete", role: .destructive) { remove(t) }
+            Button("Keep", role: .cancel) {}
+        } message: { _ in
+            Text("Its text will be gone. This can't be undone.")
+        }
+    }
+
+    private var title: String {
+        guard let pending, !pending.isDeleted else { return "Delete this transcript?" }
+        return TranscribeTool.canCancel(pending) ? "Stop and delete this transcript?" : "Delete this transcript?"
+    }
+}
+
+extension View {
+    /// Shows the delete confirmation while `pending` is set, and calls `remove` if the user confirms.
+    func confirmingRemoval(_ pending: Binding<Transcript?>, remove: @escaping (Transcript) -> Void) -> some View {
+        modifier(ConfirmRemoval(pending: pending, remove: remove))
     }
 }

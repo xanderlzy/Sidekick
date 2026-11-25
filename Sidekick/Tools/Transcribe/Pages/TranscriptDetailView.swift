@@ -3,6 +3,9 @@ import SwiftUI
 import UniformTypeIdentifiers
 
 /// One transcript: its paragraphs as selectable text, with rename, timestamps, Copy, Export and Delete.
+///
+/// Split into child views so progress updates and typing in the title only redraw their own lines;
+/// the paragraphs are decoded once per new batch of text, in `TranscriptText`.
 struct TranscriptDetailView: View {
     let tool: TranscribeTool
     let transcript: Transcript
@@ -10,42 +13,29 @@ struct TranscriptDetailView: View {
     let close: () -> Void
 
     @AppStorage(TranscribeTool.showTimestampsKey) private var showTimestamps = true
-    @State private var title = ""
-    @FocusState private var titleFocused: Bool
-    @State private var confirmingDelete = false
+    @State private var pendingRemoval: Transcript?
+    /// The title as typed; owned here so Export can commit it. Typing only redraws cheap parts.
+    @State private var draftTitle = ""
     @State private var copied = false
     @State private var exportError: String?
 
     var body: some View {
-        let paragraphs = TranscribeTool.paragraphs(for: transcript)
-        let hasText = !paragraphs.isEmpty || transcript.status == .done
         VStack(alignment: .leading, spacing: Theme.Space.section) {
-            header
-            actions(hasText: hasText)
-            if paragraphs.isEmpty {
-                Text(emptyText).font(Theme.Font.body).foregroundStyle(Theme.fg(0.5))
-            } else {
-                ScrollView {
-                    LazyVStack(alignment: .leading, spacing: 14) {
-                        ForEach(Array(paragraphs.enumerated()), id: \.offset) { _, p in
-                            ParagraphRow(paragraph: p, showTimestamp: showTimestamps)
-                        }
-                    }
-                    .padding(.bottom, 12)
+            VStack(alignment: .leading, spacing: Theme.Space.tight) {
+                Button(action: close) {
+                    Label("Transcripts", systemImage: "chevron.left")
+                        .font(Theme.Font.caption).foregroundStyle(Theme.fg(0.5))
                 }
-                .scrollIndicators(.never)
+                .buttonStyle(.plain)
+                .padding(.bottom, 4)
+                TitleField(tool: tool, transcript: transcript, title: $draftTitle)
+                DetailStatus(transcript: transcript, queue: queue)
             }
+            actions
+            TranscriptText(transcript: transcript, showTimestamps: showTimestamps)
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
-        .onAppear { title = transcript.title }
-        .onChange(of: titleFocused) { _, focused in if !focused { commitTitle() } }
-        .onChange(of: transcript.title) { _, new in if !titleFocused { title = new } }
-        .alert("Delete this transcript?", isPresented: $confirmingDelete) {
-            Button("Delete", role: .destructive, action: delete)
-            Button("Cancel", role: .cancel) {}
-        } message: {
-            Text("Its text will be gone. This can't be undone.")
-        }
+        .confirmingRemoval($pendingRemoval, remove: remove)
         .alert("Couldn't export", isPresented: Binding(get: { exportError != nil }, set: { if !$0 { exportError = nil } })) {
             Button("OK", role: .cancel) {}
         } message: {
@@ -53,33 +43,9 @@ struct TranscriptDetailView: View {
         }
     }
 
-    private var header: some View {
-        VStack(alignment: .leading, spacing: Theme.Space.tight) {
-            Button {
-                commitTitle()
-                close()
-            } label: {
-                Label("Transcripts", systemImage: "chevron.left")
-                    .font(Theme.Font.caption).foregroundStyle(Theme.fg(0.5))
-            }
-            .buttonStyle(.plain)
-            .padding(.bottom, 4)
-
-            TextField("Title", text: $title)
-                .textFieldStyle(.plain)
-                .font(Theme.Font.title)
-                .focused($titleFocused)
-                .onSubmit { commitTitle() }
-            Text(transcriptMeta(transcript)).font(Theme.Font.caption).monospacedDigit().foregroundStyle(Theme.fg(0.4))
-            TranscriptStatusLine(transcript: transcript, progress: queue.progress[transcript.id])
-            if transcript.status == .incomplete, let reason = transcript.failureReason {
-                Text(reason).font(Theme.Font.caption).foregroundStyle(Theme.fg(0.4))
-            }
-        }
-    }
-
-    private func actions(hasText: Bool) -> some View {
-        HStack(spacing: 8) {
+    private var actions: some View {
+        let hasText = transcript.status == .done || TranscribeTool.hasStoredText(transcript)
+        return HStack(spacing: 8) {
             Toggle("Timestamps", isOn: $showTimestamps)
                 .toggleStyle(MonoToggleStyle())
                 .font(Theme.Font.body)
@@ -94,7 +60,7 @@ struct TranscriptDetailView: View {
             }
             Spacer(minLength: 0)
             Button {
-                if TranscribeTool.deleteNeedsConfirmation(transcript) { confirmingDelete = true } else { delete() }
+                $pendingRemoval.request(transcript, remove: remove)
             } label: {
                 Label("Delete", systemImage: "trash").font(.system(size: 12, weight: .medium))
             }
@@ -102,16 +68,9 @@ struct TranscriptDetailView: View {
         }
     }
 
-    private var emptyText: String {
-        switch transcript.status {
-        case .done: TranscriptFormatter.noSpeechText
-        case .transcribing: "The text will appear here as it's transcribed."
-        default: TranscribeTool.statusText(for: transcript) ?? ""
-        }
-    }
-
-    private func commitTitle() {
-        title = tool.rename(transcript, to: title)
+    private func remove(_ t: Transcript) {
+        close()
+        withAnimation(Motion.fluid) { tool.delete(t) }
     }
 
     private func copy() {
@@ -123,11 +82,11 @@ struct TranscriptDetailView: View {
     }
 
     private func export() {
-        commitTitle()
         let panel = NSSavePanel()
-        panel.nameFieldStringValue = "\(transcript.title).txt"
         panel.allowedContentTypes = [.plainText]
         panel.canCreateDirectories = true
+        panel.nameFieldStringValue = "\(tool.rename(transcript, to: draftTitle)).txt"
+        draftTitle = transcript.title
         guard panel.runModal() == .OK, let url = panel.url else { return }
         let text = TranscribeTool.exportText(for: transcript, timestamps: showTimestamps)
         do {
@@ -136,10 +95,90 @@ struct TranscriptDetailView: View {
             exportError = error.localizedDescription
         }
     }
+}
 
-    private func delete() {
-        close()
-        withAnimation(Motion.fluid) { tool.delete(transcript) }
+/// The renamable title. Commits on Return, when focus leaves, and when the page closes;
+/// a blank title reverts.
+private struct TitleField: View {
+    let tool: TranscribeTool
+    let transcript: Transcript
+    @Binding var title: String
+    @FocusState private var focused: Bool
+
+    var body: some View {
+        TextField("Title", text: $title)
+            .textFieldStyle(.plain)
+            .font(Theme.Font.title)
+            .focused($focused)
+            .onSubmit(commit)
+            .onAppear { title = transcript.title }
+            .onDisappear(perform: commit)
+            .onChange(of: focused) { _, now in if !now { commit() } }
+            .onChange(of: transcript.title) { _, new in if !focused { title = new } }
+    }
+
+    private func commit() {
+        title = tool.rename(transcript, to: title)
+    }
+}
+
+/// Date, duration and status. The only part of the page that follows progress.
+private struct DetailStatus: View {
+    let transcript: Transcript
+    let queue: TranscribeQueue
+
+    var body: some View {
+        Text(transcriptMeta(transcript)).font(Theme.Font.caption).monospacedDigit().foregroundStyle(Theme.fg(0.4))
+        TranscriptStatusLine(transcript: transcript, progress: queue.progress[transcript.id])
+        if transcript.status == .incomplete, let reason = transcript.failureReason {
+            Text(reason).font(Theme.Font.caption).foregroundStyle(Theme.fg(0.4))
+        }
+    }
+}
+
+/// The paragraphs, decoded and grouped only when the stored text changes (each new batch while
+/// transcribing, a retry, or cleanup finishing).
+private struct TranscriptText: View {
+    let transcript: Transcript
+    let showTimestamps: Bool
+    @State private var paragraphs: [Paragraph] = []
+    @State private var loaded = false
+
+    var body: some View {
+        Group {
+            if !loaded {
+                Color.clear.frame(height: 0)
+            } else if paragraphs.isEmpty {
+                Text(emptyText).font(Theme.Font.body).foregroundStyle(Theme.fg(0.5))
+            } else {
+                ScrollView {
+                    LazyVStack(alignment: .leading, spacing: 14) {
+                        ForEach(Array(paragraphs.enumerated()), id: \.offset) { _, p in
+                            ParagraphRow(paragraph: p, showTimestamp: showTimestamps)
+                        }
+                    }
+                    .padding(.bottom, 12)
+                }
+                .scrollIndicators(.never)
+            }
+        }
+        .onAppear(perform: reload)
+        .onChange(of: transcript.segmentsData) { _, _ in reload() }
+        .onChange(of: transcript.cleanedData) { _, _ in reload() }
+    }
+
+    private func reload() {
+        guard !transcript.isDeleted else { return }
+        paragraphs = TranscribeTool.paragraphs(for: transcript)
+        loaded = true
+    }
+
+    private var emptyText: String {
+        switch transcript.status {
+        case .done: TranscriptFormatter.noSpeechText
+        case .transcribing: "The text will appear here as it's transcribed."
+        default: TranscribeTool.statusText(for: transcript) ?? ""
+        }
     }
 }
 
