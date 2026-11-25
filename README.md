@@ -18,6 +18,7 @@ A small menu bar app with handy Mac tools you can turn on one at a time. Everyth
 - **Dictation**: hold Fn and speak, let go to insert clean text wherever you're typing. Runs on-device.
 - **Window Manager**: snap windows to halves, quarters, thirds and more with ⌃⌥ shortcuts, or drag a window to a screen edge.
 - **Volume Mixer**: set each app's volume from a speaker icon in the menu bar. Sidekick remembers every app's level.
+- **Transcribe**: drop audio or video files (like lectures) and get a timestamped transcript to copy or export. Runs on-device.
 
 Coming from Parrot? Turn on Dictation and your history comes with you.
 
