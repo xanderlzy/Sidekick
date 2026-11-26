@@ -27,6 +27,8 @@ final class TranscribeQueue {
     @ObservationIgnored private let makeTranscriber: (TranscriberKind, URL?) -> FileTranscriber
     /// Longest a Whisper job waits for a Whisper dictation already running to finish.
     @ObservationIgnored private let dictationWaitLimit: Duration
+    /// Starts keeping the Mac awake (and Sidekick out of App Nap); returns the function that ends it.
+    @ObservationIgnored private let holdActivity: @MainActor () -> @MainActor () -> Void
     @ObservationIgnored private var current: Job?
     @ObservationIgnored private var askedPermission = false
     @ObservationIgnored private var lastQueuedAt = Date.distantPast
@@ -61,7 +63,8 @@ final class TranscribeQueue {
 
     init(store: TranscriptStore, engines: SpeechEngines, defaults: UserDefaults, notifier: TranscribeNotifier,
          cleanerClient: LanguageModelClient, makeTranscriber: @escaping (TranscriberKind, URL?) -> FileTranscriber,
-         dictationWaitLimit: Duration = .seconds(120)) {
+         dictationWaitLimit: Duration = .seconds(120),
+         holdActivity: @escaping @MainActor () -> @MainActor () -> Void = TranscribeQueue.systemActivity) {
         self.store = store
         self.engines = engines
         self.defaults = defaults
@@ -69,6 +72,15 @@ final class TranscribeQueue {
         self.cleanerClient = cleanerClient
         self.makeTranscriber = makeTranscriber
         self.dictationWaitLimit = dictationWaitLimit
+        self.holdActivity = holdActivity
+    }
+
+    /// Hours of queued lectures must not be cut short by idle sleep or App Nap (Sidekick is a
+    /// menu bar app, so with its window closed it's an App Nap candidate).
+    static func systemActivity() -> @MainActor () -> Void {
+        let token = ProcessInfo.processInfo.beginActivity(
+            options: [.userInitiated, .idleSystemSleepDisabled], reason: "Transcribing")
+        return { ProcessInfo.processInfo.endActivity(token) }
     }
 
     // MARK: - Commands
@@ -160,10 +172,12 @@ final class TranscribeQueue {
 
     private func startIfIdle() {
         guard runner == nil else { return }
+        let endActivity = holdActivity()
         runner = Task { @MainActor in
             while let next = self.nextWaiting() {
                 await self.run(next)
             }
+            endActivity()
             self.runner = nil
         }
     }

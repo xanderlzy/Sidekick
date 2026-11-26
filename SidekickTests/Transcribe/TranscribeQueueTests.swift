@@ -96,6 +96,23 @@ final class GatedModel: LanguageModelClient {
     }
 }
 
+/// Counts keep-awake activities begun and ended.
+@MainActor
+final class ActivityRecorder {
+    private(set) var begun = 0
+    private(set) var ended = 0
+    var held: Int { begun - ended }
+    func begin() -> @MainActor () -> Void {
+        begun += 1
+        var done = false
+        return { [self] in
+            guard !done else { return }
+            done = true
+            ended += 1
+        }
+    }
+}
+
 // MARK: - Fixtures
 
 enum QueueFixture {
@@ -132,7 +149,7 @@ struct QueueHarness {
 
     init(_ transcribers: [FakeFileTranscriber] = [], whisperReady: Bool = false,
          cleaner: LanguageModelClient = FakeModel { $0.replacingOccurrences(of: "Dictated text:\n", with: "") },
-         dictationWaitLimit: Duration = .seconds(120)) throws {
+         dictationWaitLimit: Duration = .seconds(120), activity: ActivityRecorder = ActivityRecorder()) throws {
         let config = ModelConfiguration(isStoredInMemoryOnly: true)
         store = TranscriptStore(container: try ModelContainer(for: Transcript.self, configurations: config))
         defaults = UserDefaults(suiteName: "sidekick-queue-tests-\(UUID())")!
@@ -149,7 +166,7 @@ struct QueueHarness {
         self.script = script
         queue = TranscribeQueue(store: store, engines: engines, defaults: defaults, notifier: notifier,
                                 cleanerClient: cleaner, makeTranscriber: { script.make($0, $1) },
-                                dictationWaitLimit: dictationWaitLimit)
+                                dictationWaitLimit: dictationWaitLimit, holdActivity: activity.begin)
     }
 
     func item(_ title: String) -> Transcript? { store.all().first { $0.title == title } }
@@ -636,5 +653,37 @@ struct TranscribeQueueTests {
         #expect(h.item("Waiting on dictation")?.status == .incomplete)
         #expect(!h.engines.whisperBusy)
         hold.release()
+    }
+
+    @Test func keepsTheMacAwakeOnlyWhileRunning() async throws {
+        let activity = ActivityRecorder()
+        let gate = Gate()
+        let h = try QueueHarness([FakeFileTranscriber([[seg(0, 1, "a")]], pauseAfter: 0, gate: gate),
+                                  FakeFileTranscriber([[seg(0, 1, "b")]])], activity: activity)
+        #expect(activity.held == 0)
+        await h.queue.enqueue([try QueueFixture.file("A"), try QueueFixture.file("B")])
+        #expect(activity.held == 1)
+        gate.open()
+        await h.queue.waitUntilIdle()
+        // One activity for the whole run of the queue, released when it empties.
+        #expect(activity.begun == 1)
+        #expect(activity.held == 0)
+
+        await h.queue.enqueue([try QueueFixture.file("C")])
+        await h.queue.waitUntilIdle()
+        #expect(activity.begun == 2)
+        #expect(activity.held == 0)
+    }
+
+    @Test func stopReleasesTheKeepAwakeActivity() async throws {
+        let activity = ActivityRecorder()
+        let gate = Gate()
+        let h = try QueueHarness([FakeFileTranscriber([[seg(0, 1, "a")]], pauseAfter: 1, gate: gate)], activity: activity)
+        await h.queue.enqueue([try QueueFixture.file("A"), try QueueFixture.file("B")])
+        await until("first batch saved") { h.item("A")?.segments.count == 1 }
+        #expect(activity.held == 1)
+        h.queue.stopAll()
+        await h.queue.waitUntilIdle()
+        #expect(activity.held == 0)
     }
 }
