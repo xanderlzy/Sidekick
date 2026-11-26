@@ -131,7 +131,8 @@ struct QueueHarness {
     let modelFolder: URL?
 
     init(_ transcribers: [FakeFileTranscriber] = [], whisperReady: Bool = false,
-         cleaner: LanguageModelClient = FakeModel { $0.replacingOccurrences(of: "Dictated text:\n", with: "") }) throws {
+         cleaner: LanguageModelClient = FakeModel { $0.replacingOccurrences(of: "Dictated text:\n", with: "") },
+         dictationWaitLimit: Duration = .seconds(120)) throws {
         let config = ModelConfiguration(isStoredInMemoryOnly: true)
         store = TranscriptStore(container: try ModelContainer(for: Transcript.self, configurations: config))
         defaults = UserDefaults(suiteName: "sidekick-queue-tests-\(UUID())")!
@@ -147,7 +148,8 @@ struct QueueHarness {
         let script = TranscriberScript(transcribers)
         self.script = script
         queue = TranscribeQueue(store: store, engines: engines, defaults: defaults, notifier: notifier,
-                                cleanerClient: cleaner, makeTranscriber: { script.make($0, $1) })
+                                cleanerClient: cleaner, makeTranscriber: { script.make($0, $1) },
+                                dictationWaitLimit: dictationWaitLimit)
     }
 
     func item(_ title: String) -> Transcript? { store.all().first { $0.title == title } }
@@ -582,5 +584,57 @@ struct TranscribeQueueTests {
         await h.queue.enqueue([try QueueFixture.file("Two")])
         await h.queue.waitUntilIdle()
         #expect(h.notifier.asks == 1)
+    }
+
+    @Test func whisperJobWaitsForDictationInProgress() async throws {
+        let fake = FakeFileTranscriber([[seg(0, 1, "x")]])
+        let h = try QueueHarness([fake], whisperReady: true)
+        let hold = h.engines.holdWhisperForDictation()
+        await h.queue.enqueue([try QueueFixture.file("Waits")])
+        // New dictations go to Apple straight away, but the job doesn't load Whisper yet.
+        await until("whisper marked busy") { h.engines.whisperBusy }
+        try await Task.sleep(for: .milliseconds(150))
+        #expect(h.script.made.isEmpty)
+        #expect(!fake.started)
+        hold.release()
+        await h.queue.waitUntilIdle()
+        #expect(fake.started)
+        #expect(h.item("Waits")?.status == .done)
+        #expect(!h.engines.whisperBusy)
+    }
+
+    @Test func whisperJobWaitIsBounded() async throws {
+        let fake = FakeFileTranscriber([[seg(0, 1, "x")]])
+        let h = try QueueHarness([fake], whisperReady: true, dictationWaitLimit: .milliseconds(100))
+        let hold = h.engines.holdWhisperForDictation()
+        await h.queue.enqueue([try QueueFixture.file("Stuck dictation")])
+        await h.queue.waitUntilIdle()
+        #expect(fake.started)
+        #expect(h.item("Stuck dictation")?.status == .done)
+        hold.release()
+    }
+
+    @Test func appleJobDoesNotWaitForDictation() async throws {
+        let fake = FakeFileTranscriber([[seg(0, 1, "x")]])
+        let h = try QueueHarness([fake], whisperReady: false)
+        let hold = h.engines.holdWhisperForDictation()
+        await h.queue.enqueue([try QueueFixture.file("Apple")])
+        await h.queue.waitUntilIdle()
+        #expect(fake.started)
+        hold.release()
+    }
+
+    @Test func stopWhileWaitingForDictationEndsTheJob() async throws {
+        let fake = FakeFileTranscriber([[seg(0, 1, "x")]])
+        let h = try QueueHarness([fake], whisperReady: true)
+        let hold = h.engines.holdWhisperForDictation()
+        await h.queue.enqueue([try QueueFixture.file("Waiting on dictation")])
+        await until("whisper marked busy") { h.engines.whisperBusy }
+        h.queue.stopAll()
+        await h.queue.waitUntilIdle()
+        #expect(!fake.started)
+        #expect(h.item("Waiting on dictation")?.status == .incomplete)
+        #expect(!h.engines.whisperBusy)
+        hold.release()
     }
 }

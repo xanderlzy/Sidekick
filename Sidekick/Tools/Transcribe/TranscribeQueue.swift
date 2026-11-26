@@ -25,6 +25,8 @@ final class TranscribeQueue {
     @ObservationIgnored private let notifier: TranscribeNotifier
     @ObservationIgnored private let cleanerClient: LanguageModelClient
     @ObservationIgnored private let makeTranscriber: (TranscriberKind, URL?) -> FileTranscriber
+    /// Longest a Whisper job waits for a Whisper dictation already running to finish.
+    @ObservationIgnored private let dictationWaitLimit: Duration
     @ObservationIgnored private var current: Job?
     @ObservationIgnored private var askedPermission = false
     @ObservationIgnored private var lastQueuedAt = Date.distantPast
@@ -58,13 +60,15 @@ final class TranscribeQueue {
     }
 
     init(store: TranscriptStore, engines: SpeechEngines, defaults: UserDefaults, notifier: TranscribeNotifier,
-         cleanerClient: LanguageModelClient, makeTranscriber: @escaping (TranscriberKind, URL?) -> FileTranscriber) {
+         cleanerClient: LanguageModelClient, makeTranscriber: @escaping (TranscriberKind, URL?) -> FileTranscriber,
+         dictationWaitLimit: Duration = .seconds(120)) {
         self.store = store
         self.engines = engines
         self.defaults = defaults
         self.notifier = notifier
         self.cleanerClient = cleanerClient
         self.makeTranscriber = makeTranscriber
+        self.dictationWaitLimit = dictationWaitLimit
     }
 
     // MARK: - Commands
@@ -206,11 +210,15 @@ final class TranscribeQueue {
             item.retrySegments = []
         }
         store.save()
-        let transcriber = makeTranscriber(kind, kind == .whisper ? engines.whisperModel.modelFolder : nil)
         if kind == .whisper {
+            // New dictations switch to Apple now; one already on Whisper gets to finish first,
+            // so two Whisper workloads never run at once.
             engines.whisperBusy = true
             job.holdsWhisper = true
+            await waitForWhisperDictations(job)
+            guard !job.ended else { return }
         }
+        let transcriber = makeTranscriber(kind, kind == .whisper ? engines.whisperModel.modelFolder : nil)
 
         let scale = item.wantsCleanup ? 0.9 : 1.0
         let engineError = await transcribe(job, audio: audio, with: transcriber, progressScale: scale)
@@ -273,6 +281,17 @@ final class TranscribeQueue {
         sink.finish()
         await consumer.value
         return engineError
+    }
+
+    /// Polls until no dictation is using Whisper, the job ends, or `dictationWaitLimit` passes.
+    private func waitForWhisperDictations(_ job: Job) async {
+        let deadline = ContinuousClock.now + dictationWaitLimit
+        while engines.whisperDictations > 0, !job.ended, !Task.isCancelled, ContinuousClock.now < deadline {
+            try? await Task.sleep(for: .milliseconds(50))
+        }
+        if engines.whisperDictations > 0, !job.ended {
+            log.error("A Whisper dictation is still running; starting the transcription anyway")
+        }
     }
 
     private func report(_ job: Job, _ fraction: Double) {

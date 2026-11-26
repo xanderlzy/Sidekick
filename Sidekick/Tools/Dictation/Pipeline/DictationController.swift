@@ -55,6 +55,8 @@ final class DictationController {
     @ObservationIgnored private let uiDelay: Duration
     /// A transcriber that hasn't answered by then (plus half the recording length) is abandoned.
     @ObservationIgnored private let finishTimeout: Duration
+    /// Claims the engine for one dictation, if it needs claiming (Whisper, so Transcribe waits for it).
+    @ObservationIgnored private let holdEngine: (Transcriber) -> EngineHold?
     /// Less voiced audio than this is treated as silence (engines hallucinate on silence).
     static let minimumVoicedSeconds = 0.15
 
@@ -63,6 +65,7 @@ final class DictationController {
         let transcriber: Transcriber
         let appName: String?
         let feed: BufferFeed
+        let hold: EngineHold?
     }
     @ObservationIgnored private var session: Session?
     @ObservationIgnored private var messageTask: Task<Void, Never>?
@@ -73,7 +76,8 @@ final class DictationController {
          frontmostAppName: @escaping () -> String? = { NSWorkspace.shared.frontmostApplication?.localizedName },
          frontmostPID: @escaping () -> Int32? = { NSWorkspace.shared.frontmostApplication?.processIdentifier },
          ensureMicrophone: @escaping () async -> Bool = DictationController.defaultEnsureMicrophone,
-         uiDelay: Duration = .milliseconds(120), finishTimeout: Duration = .seconds(10)) {
+         uiDelay: Duration = .milliseconds(120), finishTimeout: Duration = .seconds(10),
+         holdEngine: @escaping (Transcriber) -> EngineHold? = { _ in nil }) {
         self.audio = audio
         self.makeTranscriber = transcriber
         self.polisher = polisher
@@ -85,6 +89,7 @@ final class DictationController {
         self.ensureMicrophone = ensureMicrophone
         self.uiDelay = uiDelay
         self.finishTimeout = finishTimeout
+        self.holdEngine = holdEngine
         let levels = audio.levels
         Task { [weak self] in
             for await value in levels { self?.level = value }
@@ -120,7 +125,8 @@ final class DictationController {
         }
         let transcriber = makeTranscriber()
         let feed = BufferFeed()
-        let s = Session(transcriber: transcriber, appName: frontmostAppName(), feed: feed)
+        let s = Session(transcriber: transcriber, appName: frontmostAppName(), feed: feed,
+                        hold: holdEngine(transcriber))
         session = s
         messageTask?.cancel()
         if uiDelay == .zero {
@@ -142,6 +148,7 @@ final class DictationController {
                 session = nil
                 audio.stop()
                 await transcriber.cancel()
+                s.hold?.release()
                 show("Couldn't start listening")
             }
         }
@@ -162,6 +169,7 @@ final class DictationController {
         pill = .polishing
         guard s.feed.voicedSeconds >= Self.minimumVoicedSeconds else {
             await s.transcriber.cancel()
+            s.hold?.release()
             show(Self.emptyMessage); return
         }
         let transcriber = s.transcriber
@@ -169,6 +177,7 @@ final class DictationController {
         let limit = finishTimeout + .seconds(duration * 0.5)
         let finished = await withTimeout(limit) { try await transcriber.finish() }
         if finished == nil { await transcriber.cancel() }
+        s.hold?.release()
         let raw = (finished ?? "").trimmingCharacters(in: .whitespacesAndNewlines)
         guard !raw.isEmpty else { show(Self.emptyMessage); return }
         let outcome = await polisher.polish(raw)
@@ -189,6 +198,7 @@ final class DictationController {
         session = nil
         audio.stop()
         await s.transcriber.cancel()
+        s.hold?.release()
         pill = .hidden
     }
 

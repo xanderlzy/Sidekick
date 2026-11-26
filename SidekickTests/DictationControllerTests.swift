@@ -31,10 +31,11 @@ final class FakeTranscriber: Transcriber, @unchecked Sendable {
     var transcript: String
     var cancelled = false
     var finishDelay: Duration = .zero
+    var beginError: (any Error)?
     init(_ transcript: String) { self.transcript = transcript }
     func prepare() async throws {}
     var isReady: Bool { get async { true } }
-    func begin() async throws {}
+    func begin() async throws { if let beginError { throw beginError } }
     func append(_ buffer: AVAudioPCMBuffer) {}
     func finish() async throws -> String {
         if finishDelay > .zero { try await Task.sleep(for: finishDelay) }
@@ -74,7 +75,8 @@ struct DictationControllerTests {
     }
 
     func rig(transcript: String = "hello there", canPaste: Bool = true, audio: FakeAudio = FakeAudio(),
-             frontmost: @escaping () -> Int32? = { 42 }, finishTimeout: Duration = .seconds(10)) -> Rig {
+             frontmost: @escaping () -> Int32? = { 42 }, finishTimeout: Duration = .seconds(10),
+             engines: SpeechEngines? = nil) -> Rig {
         let pb = NSPasteboard(name: .init("sidekick.test.\(UUID())"))
         final class Box { var pasted: [String] = [] }
         let box = Box()
@@ -86,7 +88,8 @@ struct DictationControllerTests {
         let c = DictationController(audio: audio, transcriber: { t }, polisher: UppercasePolisher(),
                                     inserter: inserter, sink: sink, sounds: sounds,
                                     frontmostAppName: { "TextEdit" }, frontmostPID: frontmost,
-                                    ensureMicrophone: { true }, uiDelay: .zero, finishTimeout: finishTimeout)
+                                    ensureMicrophone: { true }, uiDelay: .zero, finishTimeout: finishTimeout,
+                                    holdEngine: { _ in engines?.holdWhisperForDictation() })
         return Rig(controller: c, transcriber: t, sink: sink, sounds: sounds, pasted: { box.pasted })
     }
 
@@ -198,5 +201,42 @@ struct DictationControllerTests {
         try? await Task.sleep(for: .milliseconds(300))
         #expect(sounds.played.isEmpty)
         #expect(c.pill == .hidden)
+    }
+
+    // MARK: - Whisper in use (Transcribe waits for these before loading its own model)
+
+    @Test func holdsEngineFromStartUntilFinishReturns() async {
+        let engines = SpeechEngines(defaults: UserDefaults(suiteName: "ctl-\(UUID())")!)
+        let r = rig(engines: engines)
+        await r.controller.handle(.start)
+        #expect(engines.whisperDictations == 1)
+        await r.controller.handle(.commit)
+        #expect(engines.whisperDictations == 0)
+        #expect(r.pasted() == ["HELLO THERE"])
+    }
+
+    @Test func releasesEngineOnCancelSilenceTimeoutAndFailedStart() async {
+        let engines = SpeechEngines(defaults: UserDefaults(suiteName: "ctl-\(UUID())")!)
+        let r = rig(engines: engines)
+        await r.controller.handle(.start)
+        await r.controller.handle(.cancel)
+        #expect(engines.whisperDictations == 0)
+
+        let quiet = rig(audio: FakeAudio(buffers: FakeAudio.silence), engines: engines)
+        await quiet.controller.handle(.start)
+        await quiet.controller.handle(.commit)
+        #expect(engines.whisperDictations == 0)
+
+        let hung = rig(finishTimeout: .milliseconds(50), engines: engines)
+        hung.transcriber.finishDelay = .seconds(30)
+        await hung.controller.handle(.start)
+        await hung.controller.handle(.commit)
+        #expect(engines.whisperDictations == 0)
+
+        let broken = rig(engines: engines)
+        broken.transcriber.beginError = TranscriberError.unavailable
+        await broken.controller.handle(.start)
+        #expect(broken.controller.pill == .message("Couldn't start listening"))
+        #expect(engines.whisperDictations == 0)
     }
 }
