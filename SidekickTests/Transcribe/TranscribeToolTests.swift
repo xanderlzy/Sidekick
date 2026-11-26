@@ -8,12 +8,15 @@ import Testing
 struct TranscribeToolTests {
     let defaults = UserDefaults(suiteName: "TranscribeToolTests-\(UUID())")!
     let storeDirectory = FileManager.default.temporaryDirectory.appending(path: "TranscribeToolTests-\(UUID())")
+    /// Never the real temporary folder: other suites extract audio there in parallel.
+    let tempDirectory = FileManager.default.temporaryDirectory.appending(path: "TranscribeToolTests-tmp-\(UUID())")
 
     func makeTool(_ transcribers: [FakeFileTranscriber] = []) -> TranscribeTool {
         let script = TranscriberScript(transcribers)
         return TranscribeTool(defaults: defaults, storeDirectory: storeDirectory,
                               engines: SpeechEngines(defaults: defaults), notifier: SilentNotifier(),
-                              cleanerClient: FakeModel { $0 }, makeTranscriber: { script.make($0, $1) })
+                              cleanerClient: FakeModel { $0 }, makeTranscriber: { script.make($0, $1) },
+                              tempDirectory: tempDirectory)
     }
 
     @Test func toolMetadata() {
@@ -189,5 +192,22 @@ struct TranscribeToolTests {
         #expect(tool.store === store)
         #expect(later.status == .transcribing)
         #expect(!(tool.queue?.isRunning ?? true))
+    }
+
+    @Test func startRemovesLeftoverAudioOnce() throws {
+        try FileManager.default.createDirectory(at: tempDirectory, withIntermediateDirectories: true)
+        defer { try? FileManager.default.removeItem(at: tempDirectory) }
+        let leftover = tempDirectory.appendingPathComponent("\(AudioExtractor.tempPrefix)\(UUID().uuidString).caf")
+        try Data([1]).write(to: leftover)
+        let tool = makeTool()
+        tool.start()
+        #expect(!FileManager.default.fileExists(atPath: leftover.path))
+
+        // Turning the tool off and on must not touch a file a running job may own.
+        try Data([1]).write(to: leftover)
+        tool.stop()
+        tool.start()
+        #expect(FileManager.default.fileExists(atPath: leftover.path))
+        tool.stop()
     }
 }

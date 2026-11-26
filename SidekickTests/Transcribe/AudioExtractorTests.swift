@@ -102,4 +102,28 @@ struct AudioExtractorTests {
         await writer.finishWriting()
         try #require(writer.status == .completed)
     }
+
+    @Test func removesOnlyLeftoverExtractedAudio() throws {
+        let dir = FileManager.default.temporaryDirectory.appendingPathComponent("sidekick-leftovers-\(UUID())")
+        try FileManager.default.createDirectory(at: dir, withIntermediateDirectories: true)
+        defer { try? FileManager.default.removeItem(at: dir) }
+        let leftover = dir.appendingPathComponent("\(AudioExtractor.tempPrefix)\(UUID().uuidString).caf")
+        let other = dir.appendingPathComponent("sidekick-other.caf")
+        let notCaf = dir.appendingPathComponent("\(AudioExtractor.tempPrefix)notes.txt")
+        for url in [leftover, other, notCaf] { try Data([1]).write(to: url) }
+        AudioExtractor.removeLeftovers(in: dir)
+        #expect(!FileManager.default.fileExists(atPath: leftover.path))
+        #expect(FileManager.default.fileExists(atPath: other.path))
+        #expect(FileManager.default.fileExists(atPath: notCaf.path))
+    }
+
+    @Test(.timeLimit(.minutes(1)))
+    func extractedFileUsesTheLeftoverPrefix() async throws {
+        let src = try SpeechFixture.make("Hi.")
+        defer { try? FileManager.default.removeItem(at: src) }
+        let audio = try await AudioExtractor.extract(src)
+        defer { try? FileManager.default.removeItem(at: audio.url) }
+        #expect(audio.url.lastPathComponent.hasPrefix(AudioExtractor.tempPrefix))
+        #expect(audio.url.pathExtension == "caf")
+    }
 }

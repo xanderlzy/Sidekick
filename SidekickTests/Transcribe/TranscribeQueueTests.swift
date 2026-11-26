@@ -469,7 +469,7 @@ struct TranscribeQueueTests {
         #expect(item.status == .incomplete)
         #expect(item.stoppedAt == 4.25)
         #expect(item.segments.count == 2)
-        #expect(item.failureReason == "The engine stopped.")
+        #expect(item.failureReason == "Transcription stopped because of an error.")
         #expect(h.notifier.failedTitles == ["Broken"])
         #expect(!h.engines.whisperBusy)
         let tempAudio = try #require(fake.audioURL)
@@ -482,7 +482,7 @@ struct TranscribeQueueTests {
         await h.queue.waitUntilIdle()
         let item = try #require(h.item("Broken"))
         #expect(item.status == .failed)
-        #expect(item.failureReason == "The engine stopped.")
+        #expect(item.failureReason == "Transcription stopped because of an error.")
         #expect(h.notifier.failedTitles == ["Broken"])
     }
 
@@ -685,5 +685,37 @@ struct TranscribeQueueTests {
         h.queue.stopAll()
         await h.queue.waitUntilIdle()
         #expect(activity.held == 0)
+    }
+
+    @Test func failureReasonsAreShortSentences() {
+        #expect(TranscribeQueue.failureReason(for: AppleFileError.assetsUnavailable(underlying: nil))
+                == "English speech support isn't installed.")
+        #expect(TranscribeQueue.failureReason(for: AppleFileError.unavailable)
+                == "Apple's speech engine isn't available on this Mac.")
+        #expect(TranscribeQueue.failureReason(for: EngineFailure()) == "Transcription stopped because of an error.")
+        #expect(TranscribeQueue.failureReason(for: NSError(domain: "x", code: 1))
+                == "Transcription stopped because of an error.")
+    }
+
+    @Test func extractionFailureReasons() {
+        #expect(TranscribeQueue.extractionFailureReason(ExtractError.notFound) == "File not found.")
+        #expect(TranscribeQueue.extractionFailureReason(ExtractError.noAudio) == "This file has no audio.")
+        #expect(TranscribeQueue.extractionFailureReason(NSError(domain: "AVFoundationErrorDomain", code: -11800))
+                == "Couldn't read this file.")
+    }
+
+    @Test func engineCancellationWithoutStopIsAFailureNotStuck() async throws {
+        let h = try QueueHarness([FakeFileTranscriber([[seg(0, 2, "one")]], error: CancellationError()),
+                                  FakeFileTranscriber(error: CancellationError())])
+        await h.queue.enqueue([try QueueFixture.file("Partly"), try QueueFixture.file("Nothing")])
+        await h.queue.waitUntilIdle()
+        let partly = try #require(h.item("Partly"))
+        #expect(partly.status == .incomplete)
+        #expect(partly.stoppedAt == 2)
+        #expect(partly.failureReason == "Transcription stopped because of an error.")
+        let nothing = try #require(h.item("Nothing"))
+        #expect(nothing.status == .failed)
+        #expect(nothing.failureReason == "Transcription stopped because of an error.")
+        #expect(Set(h.notifier.failedTitles) == ["Partly", "Nothing"])
     }
 }

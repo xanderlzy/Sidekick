@@ -28,12 +28,9 @@ struct WhisperFileTranscriber: FileTranscriber {
         // In the chunked (VAD) path WhisperKit ignores the per-call segment callback and uses this
         // instance property; its timings are already shifted to absolute file time.
         kit.segmentDiscoveryCallback = { found in
-            let segments = found.compactMap { s -> Segment? in
-                let text = WhisperTranscriber.clean(s.text)
-                return text.isEmpty ? nil : Segment(start: Double(s.start), end: Double(s.end), text: text)
-            }
+            let segments = Self.segments(found.map { ($0.start, $0.end, $0.text) })
             if !segments.isEmpty { onSegments(segments) }
-            if let end = found.map({ Double($0.end) }).max() { meter.update(seconds: end) }
+            if let end = found.map({ Double($0.end) }).filter(\.isFinite).max() { meter.update(seconds: end) }
         }
 
         // WhisperKit calls `callback` from a detached task, so Task.isCancelled is false there;
@@ -51,6 +48,16 @@ struct WhisperFileTranscriber: FileTranscriber {
         if cancelled.isSet { throw CancellationError() }
         try Task.checkCancellation()
         onProgress(1)
+    }
+
+    /// Cleaned segments; blank text and non-finite times are dropped (a NaN can't be saved as JSON,
+    /// which would lose the whole batch).
+    static func segments(_ found: [(start: Float, end: Float, text: String)]) -> [Segment] {
+        found.compactMap { s in
+            let text = WhisperTranscriber.clean(s.text)
+            guard !text.isEmpty, s.start.isFinite, s.end.isFinite else { return nil }
+            return Segment(start: Double(s.start), end: Double(s.end), text: text)
+        }
     }
 }
 

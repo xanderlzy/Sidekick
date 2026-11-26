@@ -209,7 +209,8 @@ final class TranscribeQueue {
             audio = try await AudioExtractor.extract(item.fileURL)
         } catch {
             guard !job.ended, !(error is CancellationError) else { return }
-            endUnfinished(job, reason: (error as? ExtractError)?.message ?? ExtractError.unsupported.message)
+            if !(error is ExtractError) { log.error("Audio extraction failed: \(error, privacy: .public)") }
+            endUnfinished(job, reason: Self.extractionFailureReason(error))
             return
         }
         defer { try? FileManager.default.removeItem(at: audio.url) }
@@ -238,8 +239,9 @@ final class TranscribeQueue {
         let engineError = await transcribe(job, audio: audio, with: transcriber, progressScale: scale)
         guard !job.ended else { return }
         if let engineError {
-            if engineError is CancellationError { return }
-            endUnfinished(job, reason: engineError.localizedDescription)
+            // A cancellation nobody asked for (the job hasn't ended) is an engine error like any other.
+            log.error("Transcription engine error: \(engineError, privacy: .public)")
+            endUnfinished(job, reason: Self.failureReason(for: engineError))
             return
         }
 
@@ -295,6 +297,19 @@ final class TranscribeQueue {
         sink.finish()
         await consumer.value
         return engineError
+    }
+
+    /// A short sentence for the list; the raw error goes to the log.
+    static func failureReason(for error: Error) -> String {
+        switch error {
+        case AppleFileError.unavailable: "Apple's speech engine isn't available on this Mac."
+        case AppleFileError.assetsUnavailable: "English speech support isn't installed."
+        default: "Transcription stopped because of an error."
+        }
+    }
+
+    static func extractionFailureReason(_ error: Error) -> String {
+        (error as? ExtractError)?.message ?? "Couldn't read this file."
     }
 
     /// Polls until no dictation is using Whisper, the job ends, or `dictationWaitLimit` passes.

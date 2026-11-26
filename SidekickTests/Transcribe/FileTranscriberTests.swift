@@ -147,4 +147,13 @@ struct FileTranscriberTests {
         defer { try? FileManager.default.removeItem(at: audio.url) }
         try await Self.checkCancel(AppleFileTranscriber(), audio: audio)
     }
+
+    @Test func whisperSegmentsDropNonFiniteTimesAndBlankText() {
+        let found: [(start: Float, end: Float, text: String)] = [
+            (0, 1.5, " Hello."), (1.5, .nan, "lost"), (.infinity, 3, "lost too"), (3, 4, "  "), (4, 5, "world"),
+        ]
+        let segments = WhisperFileTranscriber.segments(found)
+        #expect(segments.map(\.text) == ["Hello.", "world"])
+        #expect(segments.map(\.start) == [0, 4])
+    }
 }

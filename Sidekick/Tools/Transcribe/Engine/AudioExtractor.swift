@@ -21,6 +21,17 @@ struct ExtractedAudio: Sendable {
 
 enum AudioExtractor {
     static let sampleRate: Double = 16_000
+    /// Name prefix of the temporary .caf files `extract` writes.
+    static let tempPrefix = "sidekick-transcribe-"
+
+    /// Deletes extracted audio a quit or crash left behind (each can be hundreds of MB).
+    /// Call only when no job is running.
+    static func removeLeftovers(in directory: URL = FileManager.default.temporaryDirectory) {
+        let names = (try? FileManager.default.contentsOfDirectory(atPath: directory.path)) ?? []
+        for name in names where name.hasPrefix(tempPrefix) && name.hasSuffix(".caf") {
+            try? FileManager.default.removeItem(at: directory.appendingPathComponent(name))
+        }
+    }
 
     /// Cheap drop-time check: exists, not a folder, readable as media, has an audio track.
     static func validate(_ url: URL) async -> ExtractError? {
@@ -49,7 +60,7 @@ enum AudioExtractor {
         guard reader.startReading() else { throw ExtractError.unsupported }
 
         let outURL = FileManager.default.temporaryDirectory
-            .appendingPathComponent("sidekick-transcribe-\(UUID().uuidString).caf")
+            .appendingPathComponent("\(tempPrefix)\(UUID().uuidString).caf")
         var succeeded = false
         defer {
             if reader.status == .reading { reader.cancelReading() }

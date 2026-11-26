@@ -1,4 +1,5 @@
 import AppKit
+import os
 import SwiftData
 import SwiftUI
 
@@ -27,11 +28,16 @@ final class TranscribeTool: Tool {
     private let cleanerClient: LanguageModelClient
     private let makeTranscriber: (TranscriberKind, URL?) -> FileTranscriber
     private var terminateObserver: NSObjectProtocol?
+    /// Where extraction leaves temporary audio; leftovers are cleared on the first start.
+    private let tempDirectory: URL
+    private let log = Logger(subsystem: "com.sidekick.app", category: "Transcribe")
 
     init(defaults: UserDefaults = .standard, storeDirectory: URL = DictationEnvironment.defaultStoreDirectory,
          engines: SpeechEngines = .shared, notifier: TranscribeNotifier = UserNotificationsNotifier(),
          cleanerClient: LanguageModelClient = SystemModelClient(),
-         makeTranscriber: @escaping (TranscriberKind, URL?) -> FileTranscriber = TranscribeTool.liveTranscriber) {
+         makeTranscriber: @escaping (TranscriberKind, URL?) -> FileTranscriber = TranscribeTool.liveTranscriber,
+         tempDirectory: URL = FileManager.default.temporaryDirectory) {
+        self.tempDirectory = tempDirectory
         self.defaults = defaults
         self.storeDirectory = storeDirectory
         self.engines = engines
@@ -62,9 +68,16 @@ final class TranscribeTool: Tool {
     /// Idempotent. Nothing starts transcribing here: items a quit interrupted wait for Retry.
     func start() {
         if store == nil {
-            let container = (try? TranscriptStore.makeContainer(in: storeDirectory))
-                ?? (try! ModelContainer(for: Transcript.self,
-                                        configurations: ModelConfiguration(isStoredInMemoryOnly: true)))
+            // Nothing is running yet, so any extracted audio here is from a quit or crash.
+            AudioExtractor.removeLeftovers(in: tempDirectory)
+            let container: ModelContainer
+            do {
+                container = try TranscriptStore.makeContainer(in: storeDirectory)
+            } catch {
+                log.error("Couldn't open Transcripts.store, keeping transcripts in memory only: \(error, privacy: .public)")
+                container = try! ModelContainer(for: Transcript.self,
+                                                configurations: ModelConfiguration(isStoredInMemoryOnly: true))
+            }
             let store = TranscriptStore(container: container)
             store.recoverAfterLaunch()
             self.store = store
