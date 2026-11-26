@@ -4,6 +4,15 @@
     <title>Sidekick</title>
     <language>en</language>
     <item>
+      <title>Sidekick 0.3.0</title>
+      <pubDate>Thu, 26 Nov 2026 09:50:44 +0800</pubDate>
+      <sparkle:version>4</sparkle:version>
+      <sparkle:shortVersionString>0.3.0</sparkle:shortVersionString>
+      <sparkle:minimumSystemVersion>26.0</sparkle:minimumSystemVersion>
+      <description><![CDATA[<p>New Transcribe tool: drop audio or video files (like lectures) and get a timestamped transcript on-device, with Whisper or Apple&#x27;s engine. Copy or export as .txt, keep past transcripts, optional cleanup, and a queue that keeps working with the window closed. Dictation switches to Apple&#x27;s engine while a Whisper transcription runs.</p>]]></description>
+      <enclosure url="https://github.com/xanderlzy/sidekick/releases/download/v0.3.0/Sidekick-0.3.0.zip" sparkle:edSignature="GJTabLIpGLksVSqILV0i9P9oTz/Q0PBNp8BKAk+0Hvx1OpNC4T3cVzfom+p3H7NqW53aXrOx9Gb520g++VkGBQ==" length="2423733" type="application/octet-stream"/>
+    </item>
+    <item>
       <title>Sidekick 0.2.0</title>
       <pubDate>Mon, 23 Nov 2026 00:41:39 +0800</pubDate>
       <sparkle:version>3</sparkle:version>
