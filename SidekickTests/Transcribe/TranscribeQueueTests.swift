@@ -298,8 +298,9 @@ struct TranscribeQueueTests {
 
     @Test func retryReplacesPartialText() async throws {
         let gate = Gate()
+        let retryGate = Gate()
         let first = FakeFileTranscriber([[seg(0, 3, "partial")]], pauseAfter: 1, gate: gate)
-        let second = FakeFileTranscriber([[seg(0, 2, "fresh")], [seg(2, 5, "text")]])
+        let second = FakeFileTranscriber([[seg(0, 2, "fresh")], [seg(2, 5, "text")]], pauseAfter: 1, gate: retryGate)
         let h = try QueueHarness([first, second])
         await h.queue.enqueue([try QueueFixture.file("Retry")])
         await until("partial saved") { h.item("Retry")?.segments.count == 1 }
@@ -311,11 +312,89 @@ struct TranscribeQueueTests {
 
         h.queue.retry(item)
         #expect(item.queuedAt > before)
+        // The old text stays until the new run finishes.
+        #expect(item.segments == [seg(0, 3, "partial")])
+        await until("new run's first batch saved") { item.retrySegments?.count == 1 }
+        #expect(item.segments == [seg(0, 3, "partial")])
+        #expect(!item.hasChanges)
+        retryGate.open()
         await h.queue.waitUntilIdle()
         #expect(item.segments == [seg(0, 2, "fresh"), seg(2, 5, "text")])
+        #expect(item.retrySegmentsData == nil)
         #expect(item.status == .done)
         #expect(item.stoppedAt == nil)
         #expect(item.failureReason == nil)
+    }
+
+    /// Runs one job that stops with `old` saved, then returns the harness and item, ready to retry.
+    private func stoppedWithText(_ old: [[Segment]], then retryRun: FakeFileTranscriber,
+                                 name: String = "Again") async throws -> (QueueHarness, Transcript, URL) {
+        let gate = Gate()
+        let first = FakeFileTranscriber(old, pauseAfter: old.count, gate: gate)
+        let h = try QueueHarness([first, retryRun])
+        let file = try QueueFixture.file(name)
+        await h.queue.enqueue([file])
+        await until("old text saved") { h.item(name)?.segments.count == old.joined().count }
+        h.queue.stopAll()
+        await h.queue.waitUntilIdle()
+        return (h, try #require(h.item(name)), file)
+    }
+
+    @Test func retryOfMissingFileKeepsOldText() async throws {
+        let (h, item, file) = try await stoppedWithText([[seg(0, 30, "old")]], then: FakeFileTranscriber())
+        try FileManager.default.removeItem(at: file)
+        h.queue.retry(item)
+        await h.queue.waitUntilIdle()
+        #expect(item.segments == [seg(0, 30, "old")])
+        #expect(item.retrySegmentsData == nil)
+        #expect(item.status == .incomplete)
+        #expect(item.stoppedAt == 30)
+        #expect(item.failureReason == "File not found.")
+        #expect(h.notifier.failedTitles == ["Again"])
+    }
+
+    @Test func retryStoppedEarlyKeepsLongerOldText() async throws {
+        let gate = Gate()
+        let retryRun = FakeFileTranscriber([[seg(0, 5, "new")], [seg(5, 40, "more")]], pauseAfter: 1, gate: gate)
+        let (h, item, _) = try await stoppedWithText([[seg(0, 30, "old")]], then: retryRun)
+        h.queue.retry(item)
+        await until("new run's first batch saved") { item.retrySegments?.count == 1 }
+        h.queue.stopAll()
+        #expect(item.segments == [seg(0, 30, "old")])
+        #expect(item.retrySegmentsData == nil)
+        #expect(item.status == .incomplete)
+        #expect(item.stoppedAt == 30)
+        await h.queue.waitUntilIdle()
+        #expect(item.segments == [seg(0, 30, "old")])
+        #expect(item.retrySegmentsData == nil)
+    }
+
+    @Test func retryStoppedAfterPassingOldKeepsNewText() async throws {
+        let gate = Gate()
+        let retryRun = FakeFileTranscriber([[seg(0, 20, "new")], [seg(20, 45, "more")], [seg(45, 60, "end")]],
+                                           pauseAfter: 2, gate: gate)
+        let (h, item, _) = try await stoppedWithText([[seg(0, 30, "old")]], then: retryRun)
+        h.queue.retry(item)
+        await until("new run passed the old one") { item.retrySegments?.count == 2 }
+        h.queue.stopAll()
+        #expect(item.segments == [seg(0, 20, "new"), seg(20, 45, "more")])
+        #expect(item.retrySegmentsData == nil)
+        #expect(item.status == .incomplete)
+        #expect(item.stoppedAt == 45)
+        await h.queue.waitUntilIdle()
+        #expect(item.segments == [seg(0, 20, "new"), seg(20, 45, "more")])
+    }
+
+    @Test func retryEngineErrorEarlyKeepsOldText() async throws {
+        let retryRun = FakeFileTranscriber([[seg(0, 5, "new")]], error: EngineFailure())
+        let (h, item, _) = try await stoppedWithText([[seg(0, 30, "old")]], then: retryRun)
+        h.queue.retry(item)
+        await h.queue.waitUntilIdle()
+        #expect(item.segments == [seg(0, 30, "old")])
+        #expect(item.retrySegmentsData == nil)
+        #expect(item.status == .incomplete)
+        #expect(item.stoppedAt == 30)
+        #expect(item.failureReason != nil)
     }
 
     @Test func retryGoesToTheEndOfTheQueue() async throws {

@@ -37,6 +37,9 @@ final class Transcript {
     var failureReason: String?
     var segmentsData: Data
     var cleanedData: Data?
+    /// A Retry's run in progress, saved per batch. The old text in `segmentsData` stays until the run
+    /// finishes (then it's swapped in) or stops (then whichever run reaches further is kept). Nil otherwise.
+    var retrySegmentsData: Data? = nil
 
     init(id: UUID = UUID(), title: String, fileURL: URL, dateAdded: Date = .now,
          wantsCleanup: Bool, duration: Double = 0) {
@@ -68,6 +71,38 @@ final class Transcript {
             do { segmentsData = try JSONEncoder().encode(newValue) }
             catch { log.error("Failed to encode segments, keeping old data: \(error)") }
         }
+    }
+
+    /// Decoded `retrySegmentsData`; nil when no retry is running.
+    var retrySegments: [Segment]? {
+        get { retrySegmentsData.map { (try? JSONDecoder().decode([Segment].self, from: $0)) ?? [] } }
+        set {
+            guard let newValue else { retrySegmentsData = nil; return }
+            do { retrySegmentsData = try JSONEncoder().encode(newValue) }
+            catch { log.error("Failed to encode retry segments, keeping old data: \(error)") }
+        }
+    }
+
+    /// Ends a retry that didn't finish: keeps whichever run reaches further (the old one on a tie)
+    /// and drops the other. Returns true if the new run's text replaced the old.
+    @discardableResult
+    func settleRetry() -> Bool {
+        guard let data = retrySegmentsData else { return false }
+        retrySegmentsData = nil
+        guard let fresh = try? JSONDecoder().decode([Segment].self, from: data),
+              let freshEnd = fresh.last?.end, freshEnd > segments.last?.end ?? 0 else { return false }
+        segmentsData = data
+        cleanedData = nil
+        return true
+    }
+
+    /// Ends a retry that finished: its text replaces the old, with `cleaned` from its own cleanup.
+    func commitRetry(cleaned newCleaned: [Paragraph]?) {
+        guard let data = retrySegmentsData else { return }
+        retrySegmentsData = nil
+        segmentsData = data
+        cleanedData = nil
+        cleaned = newCleaned
     }
 
     var cleaned: [Paragraph]? {

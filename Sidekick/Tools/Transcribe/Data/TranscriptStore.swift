@@ -39,8 +39,10 @@ final class TranscriptStore {
     }
 
     /// Jobs interrupted by a quit: in-progress ones become incomplete, queued ones stopped.
+    /// A retry cut short keeps whichever run reaches further.
     func recoverAfterLaunch() {
         for t in all() {
+            t.settleRetry()
             switch t.status {
             case .transcribing:
                 t.status = .incomplete

@@ -41,6 +41,9 @@ final class TranscribeQueue {
         var phase = Phase.transcribing
         var ended = false
         var holdsWhisper = false
+        /// The item already had text when the job started: this run writes to `retrySegments`
+        /// and the old text stays until the run finishes.
+        var isRetry = false
 
         init(item: Transcript) {
             self.item = item
@@ -104,12 +107,9 @@ final class TranscribeQueue {
         store.delete(t)
     }
 
-    /// Clears any earlier result and puts the item at the end of the queue.
+    /// Puts the item at the end of the queue. Any earlier text stays until the new run finishes.
     func retry(_ t: Transcript) {
         if let job = current, job.id == t.id, !job.ended { return }
-        t.segments = []
-        t.cleanedData = nil
-        t.stoppedAt = nil
         t.failureReason = nil
         t.status = .waiting
         t.queuedAt = nextQueuedAt()
@@ -125,11 +125,12 @@ final class TranscribeQueue {
             let item = job.item
             switch job.phase {
             case .transcribing:
-                item.status = .incomplete
-                item.stoppedAt = item.segments.last?.end ?? 0
+                endUnfinished(job, reason: nil)
             case .cleaning:
+                // The text is all there; only the cleanup is dropped.
+                if job.isRetry { item.commitRetry(cleaned: nil) } else { item.cleanedData = nil }
                 item.status = .done
-                item.cleanedData = nil
+                item.stoppedAt = nil
             }
             progress[job.id] = nil
         }
@@ -190,7 +191,7 @@ final class TranscribeQueue {
             audio = try await AudioExtractor.extract(item.fileURL)
         } catch {
             guard !job.ended, !(error is CancellationError) else { return }
-            fail(job, reason: (error as? ExtractError)?.message ?? ExtractError.unsupported.message)
+            endUnfinished(job, reason: (error as? ExtractError)?.message ?? ExtractError.unsupported.message)
             return
         }
         defer { try? FileManager.default.removeItem(at: audio.url) }
@@ -200,6 +201,10 @@ final class TranscribeQueue {
         let kind = TranscriberKind.effective(selected: selected, whisperReady: engines.whisperModel.isReady)
         item.duration = audio.duration
         item.engine = kind.rawValue
+        if TranscribeTool.hasStoredText(item) {
+            job.isRetry = true
+            item.retrySegments = []
+        }
         store.save()
         let transcriber = makeTranscriber(kind, kind == .whisper ? engines.whisperModel.modelFolder : nil)
         if kind == .whisper {
@@ -212,30 +217,25 @@ final class TranscribeQueue {
         guard !job.ended else { return }
         if let engineError {
             if engineError is CancellationError { return }
-            let reason = engineError.localizedDescription
-            if let last = item.segments.last {
-                item.status = .incomplete
-                item.stoppedAt = last.end
-                item.failureReason = reason
-                store.save()
-                notifier.failed(title: job.title)
-            } else {
-                fail(job, reason: reason)
-            }
+            endUnfinished(job, reason: engineError.localizedDescription)
             return
         }
 
-        if item.wantsCleanup, !item.segments.isEmpty, cleanerClient.isAvailable {
+        let runSegments = job.isRetry ? item.retrySegments ?? [] : item.segments
+        var cleaned: [Paragraph]?
+        if item.wantsCleanup, !runSegments.isEmpty, cleanerClient.isAvailable {
             job.phase = .cleaning
-            let paragraphs = TranscriptFormatter.paragraphs(item.segments)
+            let paragraphs = TranscriptFormatter.paragraphs(runSegments)
             let cleaner = TranscriptCleaner(client: cleanerClient)
-            let cleaned = await cleaner.clean(paragraphs) { fraction in
+            cleaned = await cleaner.clean(paragraphs) { fraction in
                 Task { @MainActor in self.report(job, 0.9 + 0.1 * fraction) }
             }
             guard !job.ended else { return }
-            item.cleaned = cleaned
         }
 
+        if job.isRetry { item.commitRetry(cleaned: cleaned) } else { item.cleaned = cleaned }
+        item.stoppedAt = nil
+        item.failureReason = nil
         item.status = .done
         store.save()
         notifier.finished(title: job.title)
@@ -251,7 +251,11 @@ final class TranscribeQueue {
                 guard !job.ended else { continue }
                 switch event {
                 case .segments(let batch):
-                    job.item.segments += batch
+                    if job.isRetry {
+                        job.item.retrySegments = (job.item.retrySegments ?? []) + batch
+                    } else {
+                        job.item.segments += batch
+                    }
                     store.save()
                 case .progress(let fraction):
                     report(job, fraction * progressScale)
@@ -276,10 +280,25 @@ final class TranscribeQueue {
         progress[job.id] = max(progress[job.id] ?? 0, min(fraction, 1))
     }
 
-    private func fail(_ job: Job, reason: String) {
-        job.item.status = .failed
-        job.item.failureReason = reason
+    /// Ends a run that didn't finish. A cut-short retry keeps whichever run reaches further. With text,
+    /// the item is incomplete at its last segment; without, it fails (or, when stopped, is incomplete at 0).
+    /// `reason` is nil when the user stopped it.
+    private func endUnfinished(_ job: Job, reason: String?) {
+        let item = job.item
+        item.settleRetry()
+        if let last = item.segments.last {
+            item.status = .incomplete
+            item.stoppedAt = last.end
+            item.failureReason = reason
+        } else if let reason {
+            item.status = .failed
+            item.failureReason = reason
+        } else {
+            item.status = .incomplete
+            item.stoppedAt = 0
+        }
         store.save()
+        guard let reason else { return }
         log.error("Transcription failed: \(reason, privacy: .public)")
         notifier.failed(title: job.title)
     }

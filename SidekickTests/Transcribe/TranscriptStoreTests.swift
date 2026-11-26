@@ -80,4 +80,36 @@ struct TranscriptStoreTests {
         t.segments = t.segments + [Segment(start: 0, end: 1, text: "x")]
         #expect(t.segmentsData == garbage)
     }
+
+    @Test func recoverMidRetryKeepsWhicheverRunReachesFurther() throws {
+        let store = try makeStore()
+        // The old run reached further: the new run's text is dropped.
+        let a = store.add(fileURL: URL(fileURLWithPath: "/tmp/a.m4a"), wantsCleanup: false)
+        a.segments = [Segment(start: 0, end: 30, text: "old")]
+        a.retrySegments = [Segment(start: 0, end: 4, text: "new")]
+        a.status = .transcribing
+        // The new run passed the old one: it replaces the old text.
+        let b = store.add(fileURL: URL(fileURLWithPath: "/tmp/b.m4a"), wantsCleanup: false)
+        b.segments = [Segment(start: 0, end: 10, text: "old")]
+        b.retrySegments = [Segment(start: 0, end: 12, text: "new"), Segment(start: 12, end: 20, text: "more")]
+        b.status = .transcribing
+        store.save()
+
+        store.recoverAfterLaunch()
+        #expect(a.status == .incomplete)
+        #expect(a.segments == [Segment(start: 0, end: 30, text: "old")])
+        #expect(a.retrySegmentsData == nil)
+        #expect(a.stoppedAt == 30)
+        #expect(b.status == .incomplete)
+        #expect(b.segments == [Segment(start: 0, end: 12, text: "new"), Segment(start: 12, end: 20, text: "more")])
+        #expect(b.retrySegmentsData == nil)
+        #expect(b.stoppedAt == 20)
+    }
+
+    @Test func retrySegmentsDefaultToNil() throws {
+        let store = try makeStore()
+        let t = store.add(fileURL: URL(fileURLWithPath: "/tmp/a.m4a"), wantsCleanup: false)
+        #expect(t.retrySegmentsData == nil)
+        #expect(t.retrySegments == nil)
+    }
 }
